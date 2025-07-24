@@ -1,0 +1,28 @@
+# with this configuration the agent solved the environment
+agent:
+  batch_size: 32
+  buffer_capacity: 20000
+  dqn_hidden_size: 64
+  dqn_lr: 0.0005
+  dqn_target_update_freq: 100
+  epsilon_decay: 10000
+  epsilon_final: 0.05
+  epsilon_start: 1.0
+  gamma: 0.99
+  rnd_hidden_size: 64
+  rnd_lr: 0.001
+  rnd_output_size: 64
+  rnd_reward_weight: 0.01
+  rnd_type: on_sample
+  rnd_update_freq: 1000
+  type: dqn
+env:
+  name: MiniGrid-Empty-6x6-v0
+  wrapper: FlatObsWrapper
+run_name: MiniGrid-Empty-6x6-v0_dqn_seed0_rnd10058
+run_time: 299.5804102420807
+seed: 0
+train:
+  eval_interval: 10
+  num_frames: 100000
+  saved_decimals: 5

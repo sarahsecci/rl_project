@@ -4,35 +4,71 @@ Visualize a trained DQN agent in MiniGrid environment.
 
 import os
 
+import dqn
 import gymnasium as gym
+import hydra
 import matplotlib
+import rnd_dqn
 import torch
-from minigrid.wrappers import RGBImgObsWrapper
+from minigrid.wrappers import FlatObsWrapper
+from omegaconf import DictConfig
 
 matplotlib.use("Agg")
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-import rnd_dqn
 
 
-def visualize_agent(model_path, env_name, num_episodes=3, max_steps=100):
+def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
+    env_name = cfg.env.name
+    file_path = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(file_path, "../../results/models/", cfg.run_name + ".pth")
+
     # Build environment and use RGB Wrapper
     env = gym.make(env_name, render_mode="rgb_array")
-    env = RGBImgObsWrapper(env)  # Use RGB images for DQN
-    obs, _ = env.reset()
-    obs_shape = obs["image"].shape
-    obs_shape = (obs_shape[2], obs_shape[0], obs_shape[1])  # (C, H, W) for PyTorch
+    env = FlatObsWrapper(env)
+    env.reset()
 
     # Instantiate agent and load weights
-    agent = rnd_dqn.RNDDQNAgent(
-        env=env,
-        obs_shape=obs_shape,
-        dqn_hidden_size=32,
-        rnd_hidden_size=32,
-        rnd_output_size=32,
-        rnd_type="on_sample",
-        rnd_reward_weight=0.01,
-    )
+    if cfg.agent.type == "dqn":
+        agent_kwargs = dict(
+            buffer_capacity=cfg.agent.buffer_capacity,
+            batch_size=cfg.agent.batch_size,
+            lr=cfg.agent.dqn_lr,
+            gamma=cfg.agent.gamma,
+            epsilon_start=cfg.agent.epsilon_start,
+            epsilon_final=cfg.agent.epsilon_final,
+            epsilon_decay=cfg.agent.epsilon_decay,
+            dqn_target_update_freq=cfg.agent.dqn_target_update_freq,
+            dqn_hidden_size=cfg.agent.dqn_hidden_size,
+            decimals=cfg.train.saved_decimals,
+            seed=cfg.seed,
+        )
+        agent = dqn.DQNAgent(env, **agent_kwargs)
+    elif cfg.agent.type == "rnd":
+        agent_kwargs = dict(
+            buffer_capacity=cfg.agent.buffer_capacity,
+            batch_size=cfg.agent.batch_size,
+            lr=cfg.agent.dqn_lr,
+            gamma=cfg.agent.gamma,
+            epsilon_start=cfg.agent.epsilon_start,
+            epsilon_final=cfg.agent.epsilon_final,
+            epsilon_decay=cfg.agent.epsilon_decay,
+            dqn_target_update_freq=cfg.agent.dqn_target_update_freq,
+            dqn_hidden_size=cfg.agent.dqn_hidden_size,
+            decimals=cfg.train.saved_decimals,
+            rnd_type=cfg.agent.rnd_type,
+            rnd_hidden_size=cfg.agent.rnd_hidden_size,
+            rnd_output_size=cfg.agent.rnd_output_size,
+            rnd_lr=cfg.agent.rnd_lr,
+            rnd_update_freq=cfg.agent.rnd_update_freq,
+            rnd_reward_weight=cfg.agent.rnd_reward_weight,
+            seed=cfg.seed,
+        )
+        agent = rnd_dqn.RNDDQNAgent(env, **agent_kwargs)
+    else:
+        raise ValueError(f"Unknown agent type: {cfg.agent.type}")
+
+    # Load model parameters
     checkpoint = torch.load(model_path, map_location="cpu")
     agent.q.load_state_dict(checkpoint["parameters"])
     agent.q.eval()
@@ -63,17 +99,19 @@ def visualize_agent(model_path, env_name, num_episodes=3, max_steps=100):
         ani = animation.ArtistAnimation(
             fig, ims, interval=100, blit=True, repeat_delay=1000
         )
-        ani.save(f"results/agent_run_{ep + 1}.gif", writer="pillow")
+        ani_path = os.path.join(file_path, f"../../results/gif/agent_run_{ep + 1}.gif")
+        ani.save(ani_path, writer="pillow")
+
+
+# change config name
+@hydra.main(
+    config_path="../../results/config/",
+    config_name="MiniGrid-Empty-6x6-v0_dqn_seed0_rnd10058",
+    version_base="1.1",
+)
+def main(cfg: DictConfig):
+    visualize_agent(cfg, num_episodes=3)
 
 
 if __name__ == "__main__":
-    # Edit the model path and environment name as needed
-    file_path = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(
-        file_path,
-        "../../results/models/MiniGrid-DoorKey-6x6-v0_rnd_on_sample_seed2_frames100000.pth",
-    )
-    env_name = "MiniGrid-DoorKey-6x6-v0"
-
-    # Visualize the agent
-    visualize_agent(model_path, env_name, num_episodes=3)
+    main()
