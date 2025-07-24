@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from dqn import DQNAgent
-from networks import CNN
+from networks import CNN, MLP
 
 
 class RNDDQNAgent(DQNAgent):
@@ -27,7 +27,6 @@ class RNDDQNAgent(DQNAgent):
     def __init__(
         self,
         env: gym.Env,
-        obs_shape: tuple[int, ...],
         buffer_capacity: int = 10000,
         batch_size: int = 32,
         lr: float = 1e-3,
@@ -37,6 +36,7 @@ class RNDDQNAgent(DQNAgent):
         epsilon_decay: int = 5000,
         dqn_target_update_freq: int = 1000,
         dqn_hidden_size: int = 64,
+        decimals: int = 5,
         rnd_type: str = "naive",  # "naive" or "on_sample"
         rnd_hidden_size: int = 64,
         rnd_output_size: int = 64,
@@ -87,7 +87,6 @@ class RNDDQNAgent(DQNAgent):
         """
         super().__init__(
             env,
-            obs_shape,
             buffer_capacity,
             batch_size,
             lr,
@@ -97,6 +96,7 @@ class RNDDQNAgent(DQNAgent):
             epsilon_decay,
             dqn_target_update_freq,
             dqn_hidden_size,
+            decimals,
             seed,
         )
         self.seed = seed
@@ -105,8 +105,20 @@ class RNDDQNAgent(DQNAgent):
         self.rnd_reward_weight = rnd_reward_weight
 
         # Initialize RND networks
-        self.rnd_predictor_network = CNN(obs_shape, rnd_output_size, rnd_hidden_size)
-        self.rnd_target_network = CNN(obs_shape, rnd_output_size, rnd_hidden_size)
+        if isinstance(env.observation_space, gym.spaces.Box):
+            self.rnd_predictor_network = MLP(
+                self.obs_shape, rnd_output_size, rnd_hidden_size
+            )
+            self.rnd_target_network = MLP(
+                self.obs_shape, rnd_output_size, rnd_hidden_size
+            )
+        elif isinstance(env.observation_space, gym.spaces.Dict):
+            self.rnd_predictor_network = CNN(
+                self.obs_shape, rnd_output_size, rnd_hidden_size
+            )
+            self.rnd_target_network = CNN(
+                self.obs_shape, rnd_output_size, rnd_hidden_size
+            )
 
         # Do not redefine self.optimizer here; it is already set in DQNAgent
         self.rnd_predictor_optimizer = optim.Adam(
@@ -257,12 +269,13 @@ class RNDDQNAgent(DQNAgent):
         state, _ = self.env.reset()
         state = self._process_obs(state)
         ep_reward = 0.0
-        recent_rewards: List[float] = []
         episode_rewards = []
         steps = []
 
         for frame in range(1, num_frames + 1):
-            action = self.predict_action(state)
+            action = self.predict_action(
+                state, evaluate=True
+            )  # Use greedy action selection
             next_state, reward, done, truncated, _ = self.env.step(action)
             next_state = self._process_obs(next_state)
 
@@ -287,14 +300,13 @@ class RNDDQNAgent(DQNAgent):
             if done or truncated:
                 state, _ = self.env.reset()
                 state = self._process_obs(state)
-                recent_rewards.append(ep_reward)
                 episode_rewards.append(ep_reward)
                 steps.append(frame)
                 ep_reward = 0.0
 
                 # Logging
-                if len(recent_rewards) % eval_interval == 0:
-                    avg = np.mean(recent_rewards)
+                if len(episode_rewards) % eval_interval == 0:
+                    avg = np.mean(episode_rewards)
                     print(
                         f"Frame {frame}, AvgReward({eval_interval}): {avg:.3f}, ε={self.epsilon():.5f}"
                     )
@@ -302,5 +314,10 @@ class RNDDQNAgent(DQNAgent):
         print("Training complete.")
 
         # Save training data to CSV
-        training_data = pd.DataFrame({"steps": steps, "rewards": episode_rewards})
+        training_data = pd.DataFrame(
+            {
+                "steps": steps,
+                "rewards": [round(r, self._decimals) for r in episode_rewards],
+            }
+        )
         training_data.to_csv(file_path, index=False)

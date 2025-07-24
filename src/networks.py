@@ -6,6 +6,28 @@ import torch
 import torch.nn as nn
 
 
+class MLP(nn.Module):
+    """
+    Multi-layer perceptron (MLP) for DQN and RND.
+    The architecture is designed to be similar to the original DQN paper https://arxiv.org/pdf/1312.5602.
+    """
+
+    def __init__(self, input_size, output_size, hidden_dim=64):
+        super().__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(input_size, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_size),
+        )
+
+    def forward(self, x):
+        return self.fc(x)
+
+
 class CNN(nn.Module):
     """
     CNN designed to handle RGB images as input.

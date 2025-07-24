@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 from agent import AbstractAgent
 from buffers import ReplayBuffer
-from networks import CNN
+from networks import CNN, MLP
 
 
 def set_seed(env: gym.Env, seed: int = 0) -> None:
@@ -49,7 +49,6 @@ class DQNAgent(AbstractAgent):
     def __init__(
         self,
         env: gym.Env,
-        obs_shape: tuple[int, ...],
         buffer_capacity: int = 10000,
         batch_size: int = 32,
         lr: float = 1e-3,
@@ -59,6 +58,7 @@ class DQNAgent(AbstractAgent):
         epsilon_decay: int = 5000,
         dqn_target_update_freq: int = 1000,
         dqn_hidden_size: int = 64,
+        decimals: int = 5,
         seed: int = 0,
     ) -> None:
         """
@@ -100,32 +100,33 @@ class DQNAgent(AbstractAgent):
             dqn_hidden_size,
             seed,
         )
+        # private constants
+        self._decimals = decimals  # For rounding entries in CSV
+
         self.env = env
         set_seed(env, seed)
 
-        # Handle different observation space types
-        if obs_shape is not None:
-            # Use provided obs_dim (for MiniGrid and other complex spaces)
-            self.obs_dim = obs_shape[0] * obs_shape[1] * obs_shape[2]
-            self._obs_key = None
-        elif isinstance(env.observation_space, gym.spaces.Box):
-            # Simple Box space (like CartPole, LunarLander)
-            self.obs_dim = env.observation_space.shape[0]
-            self._obs_key = None
-        elif isinstance(env.observation_space, gym.spaces.Dict):
-            # Dict space (like MiniGrid)
-            self._obs_key = "image"
-            self.obs_shape = env.observation_space[self._obs_key].shape
-            self.obs_dim = int(np.prod(self.obs_shape))
-        else:
-            raise NotImplementedError(
-                f"Unsupported observation space type: {type(env.observation_space)}"
-            )
-
         n_actions = env.action_space.n
 
-        self.q = CNN(obs_shape, n_actions, dqn_hidden_size)
-        self.target_q = CNN(obs_shape, n_actions, dqn_hidden_size)
+        # Handle Flat Observation Space with MLP and RGB Observation Space with CNN
+        if isinstance(env.observation_space, gym.spaces.Box):
+            obs = env.observation_space.shape
+            self.obs_shape = obs[0]
+            self.q = MLP(self.obs_shape, n_actions, dqn_hidden_size)
+            self.target_q = MLP(self.obs_shape, n_actions, dqn_hidden_size)
+        elif isinstance(env.observation_space, gym.spaces.Dict):
+            obs = env.observation_space
+            obs_shape = obs["image"].shape
+            self.obs_shape = (
+                obs_shape[2],
+                obs_shape[0],
+                obs_shape[1],
+            )  # (C, H, W) for PyTorch
+            self.obs_dim = obs_shape[0] * obs_shape[1] * obs_shape[2]
+            self._obs_key = None
+            self.q = CNN(self.obs_shape, n_actions, dqn_hidden_size)
+            self.target_q = CNN(self.obs_shape, n_actions, dqn_hidden_size)
+
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=lr)
@@ -316,7 +317,6 @@ class DQNAgent(AbstractAgent):
         print("Starting training...")
         state, _ = self.env.reset()
         ep_reward = 0.0
-        recent_rewards: List[float] = []
         episode_rewards = []
         steps = []
 
@@ -336,20 +336,24 @@ class DQNAgent(AbstractAgent):
 
             if done or truncated:
                 state, _ = self.env.reset()
-                recent_rewards.append(ep_reward)
                 episode_rewards.append(ep_reward)
                 steps.append(frame)
                 ep_reward = 0.0
 
                 # Logging
-                if len(recent_rewards) % eval_interval == 0:
-                    avg = np.mean(recent_rewards[-eval_interval:])
+                if len(episode_rewards) % eval_interval == 0:
+                    avg = np.mean(episode_rewards[-eval_interval:])
                     print(
                         f"Frame {frame}, AvgReward({eval_interval}): {avg:.3f}, ε={self.epsilon():.5f}"
                     )
 
         print("Training complete.")
 
-        # Save training data to CSV
-        training_data = pd.DataFrame({"steps": steps, "rewards": episode_rewards})
-        training_data.to_csv(file_path, index=False)
+        # Save training data to CSV and round rewards to a fixed number of decimal places
+        training_data = pd.DataFrame(
+            {
+                "steps": steps,
+                "rewards": [round(r, self._decimals) for r in episode_rewards],
+            }
+        )
+        training_data.to_csv(file_path, index=False, mode="a")
