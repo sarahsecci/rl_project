@@ -6,17 +6,17 @@ env:
 seed: 0   # Random seed for reproducibility
 
 agent:
-  type:                   "dqn"   # Possebile values: "dqn", "rnd"
+  type:                   "rnd"   # Possebile values: "dqn", "rnd"
   buffer_capacity:        20000   # Max replay buffer size
   batch_size:             32      # Minibatch size
   gamma:                  0.99    # Discount factor
   epsilon_start:          1.0     # Initial value of epsilon
-  epsilon_final:          0.05    # Final value of epsilon
-  epsilon_decay:          10000    # Decay steps for epsilon
+  epsilon_final:          0.2    # Final value of epsilon
+  epsilon_decay:          250000    # Decay steps for epsilon
   dqn_hidden_size:        64      # Hidden size for DQN networks
   dqn_lr:                 0.0005   # Maps to DQNAgent’s lr
   dqn_target_update_freq: 100    # Update target network every this many steps
-  rnd_type:               "on_sample" # Possebile values: "naive", "on_sample"
+  rnd_type:               "naive" # Possebile values: "naive", "on_sample"
   rnd_hidden_size:        64      # Hidden size for RND networks
   rnd_output_size:        64      # Output size for RND networks
   rnd_lr:                 0.001   # Learning rate for RND networks
@@ -24,6 +24,6 @@ agent:
   rnd_reward_weight:      0.01     # Weight for RND reward in total reward
   
 train:
-  num_frames:     100000   # Total env steps
-  eval_interval:  10      # Print avg reward every this many episodes
+  num_frames:     10000   # Total env steps
+  eval_interval:  100     # Build mean value of sampled minibatches every eval_interval steps.
   saved_decimals: 5       # number of decimals saved in the csv

@@ -138,3 +138,6 @@ tmp*
 
 # Ruff cache
 .ruff_cache/
+
+# project specific
+MiniGrid*

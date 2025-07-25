@@ -12,7 +12,7 @@ class ReplayBuffer(AbstractBuffer):
     and evicts the oldest when capacity is exceeded.
     """
 
-    def __init__(self, capacity: int) -> None:
+    def __init__(self, capacity: int, intr: bool = False) -> None:
         """
         Parameters
         ----------
@@ -28,6 +28,10 @@ class ReplayBuffer(AbstractBuffer):
         self.dones: List[bool] = []
         self.infos: List[Dict] = []
 
+        self.intr = intr
+        if self.intr:
+            self.intr_rewards: List[float] = []
+
     def add(
         self,
         state: np.ndarray,
@@ -36,6 +40,7 @@ class ReplayBuffer(AbstractBuffer):
         next_state: np.ndarray,
         done: bool,
         info: dict,
+        intr_reward: float = None,
     ) -> None:
         """
         Add a single transition to the buffer.
@@ -56,6 +61,8 @@ class ReplayBuffer(AbstractBuffer):
             Whether episode terminated/truncated.
         info : dict
             Gym info dict (can store extras).
+        intr_reward : float, optional
+            Intrinsic reward (if applicable, e.g. in RND).
         """
         if len(self.states) >= self.capacity:
             # pop oldest
@@ -73,6 +80,11 @@ class ReplayBuffer(AbstractBuffer):
         self.dones.append(done)
         self.infos.append(info)
 
+        if self.intr:
+            if len(self.intr_rewards) >= self.capacity:
+                self.intr_rewards.pop(0)
+            self.intr_rewards.append(intr_reward)
+
     def sample(
         self, batch_size: int = 32
     ) -> List[Tuple[Any, Any, float, Any, bool, Dict]]:
@@ -89,7 +101,8 @@ class ReplayBuffer(AbstractBuffer):
         List of transitions as (state, action, reward, next_state, done, info).
         """
         idxs = np.random.choice(len(self.states), batch_size, replace=False)
-        return [
+
+        result = [
             (
                 self.states[i],
                 self.actions[i],
@@ -97,9 +110,15 @@ class ReplayBuffer(AbstractBuffer):
                 self.next_states[i],
                 self.dones[i],
                 self.infos[i],
+                self.intr_rewards[i] if self.intr else None,
             )
             for i in idxs
         ]
+        if self.intr:
+            return result
+        else:
+            # Remove the last element (intr_reward) from each tuple
+            return [t[:-1] for t in result]
 
     def __len__(self) -> int:
         """Current number of stored transitions."""

@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime as dt
 
 import dqn
 import gymnasium as gym
@@ -105,35 +106,26 @@ def setup_agent(cfg: DictConfig, env: gym.Env) -> dqn.DQNAgent:
     return agent
 
 
-@hydra.main(config_path="../config/", config_name="dqn", version_base="1.1")
-def main(cfg: DictConfig):
-    # generate random number for saving results
-    rnd = torch.randint(0, 100000, (1,)).item()
+def train_agent(cfg: DictConfig):
+    # get env name and agent type
+    env_name = cfg.env.name
+    agent_type = cfg.agent.type
+    if agent_type == "rnd":
+        rnd_type = cfg.agent.rnd_type
+        agent_type = f"{agent_type}_{rnd_type}"
 
-    # Set up logging
+    # generate folder for new training data (increase number for folder name)
     file_path = os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(os.path.join(file_path, "../results/models"), exist_ok=True)
-    os.makedirs(os.path.join(file_path, "../results/csv"), exist_ok=True)
-    os.makedirs(os.path.join(file_path, "../results/config"), exist_ok=True)
-    name = None
-    if cfg.agent.type == "dqn":
-        name = f"{cfg.env.name}_{cfg.agent.type}_seed{cfg.seed}_rnd{rnd}"
-    else:
-        name = f"{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed{cfg.seed}_rnd{rnd}"
-    model_path = os.path.join(file_path, "../results/models", f"{name}.pth")
-    csv_path = os.path.join(file_path, "../results/csv", f"{name}.csv")
-    yaml_path = os.path.join(file_path, "../results/config", f"{name}.yaml")
+    os.makedirs(os.path.join(file_path, "../results"), exist_ok=True)
+    run_folder = f"{env_name}_{agent_type}_run_{dt.now().isoformat()}"
+    run_path = os.path.join(file_path, "../results", run_folder)
+    os.makedirs(run_path, exist_ok=True)
 
-    # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
-    if cfg.env.wrapper == "RGBImgObsWrapper":
-        set_gpu()
-    print("torch device: ", torch.get_default_device())
+    model_file = os.path.join(run_path, "model.pth")
+    config_file = os.path.join(run_path, "config.yaml")
 
     # Build env with wrapper
     env = build_env(cfg.env.name, cfg.env.wrapper)
-
-    # Set seed
-    dqn.set_seed(env, cfg.seed)
 
     # Set up agent
     agent = setup_agent(cfg, env)
@@ -142,7 +134,7 @@ def main(cfg: DictConfig):
     time_start = time.time()
 
     # Train agent
-    agent.train(cfg.train.num_frames, csv_path, cfg.train.eval_interval)
+    agent.train(cfg.train.num_frames, run_path, cfg.train.eval_interval)
 
     # Stop timer
     t = time.time() - time_start
@@ -151,15 +143,30 @@ def main(cfg: DictConfig):
     # Save model
     torch.save(
         {"parameters": agent.q.state_dict(), "optimizer": agent.optimizer.state_dict()},
-        model_path,
+        model_file,
     )
 
     # Save config to yaml
     config_to_save = OmegaConf.to_container(cfg, resolve=True)
-    config_to_save["run_name"] = name  # Add the name to the config
     config_to_save["run_time"] = t
-    with open(yaml_path, "w") as f:
+    with open(config_file, "w") as f:
         yaml.dump(config_to_save, f)
+
+
+# def visu_trained_agent():
+
+
+@hydra.main(config_path="../config/", config_name="dqn", version_base="1.1")
+def main(cfg: DictConfig):
+    # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
+    if cfg.env.wrapper == "RGBImgObsWrapper":
+        set_gpu()
+    print("torch device: ", torch.get_default_device())
+
+    # train agent
+    train_agent(cfg)
+
+    # visualize trained agent
 
 
 if __name__ == "__main__":

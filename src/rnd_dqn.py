@@ -4,12 +4,15 @@ Deep Q-Learning with RND implementation.
 
 from typing import Any, Dict, List, Tuple
 
+import os
+
 import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from buffers import ReplayBuffer
 from dqn import DQNAgent
 from networks import CNN, MLP
 
@@ -99,7 +102,8 @@ class RNDDQNAgent(DQNAgent):
             decimals,
             seed,
         )
-        self.seed = seed
+        self.buffer = ReplayBuffer(buffer_capacity, intr=True)
+
         self.rnd_lr = rnd_lr
         self.rnd_update_freq = rnd_update_freq
         self.rnd_reward_weight = rnd_reward_weight
@@ -197,7 +201,7 @@ class RNDDQNAgent(DQNAgent):
         return rnd_error.item() * self.rnd_reward_weight
 
     def update_agent(
-        self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict]]
+        self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict, float]]
     ) -> float:
         """
         Perform one gradient update on a batch of transitions.
@@ -209,11 +213,19 @@ class RNDDQNAgent(DQNAgent):
 
         Returns
         -------
+        mean_extr : float
+            Mean extrinsic reward for minibatch
+        mean_intr : float
+            Mean intrinsic reward for minibatch
+        td : float
+            TD error computed during update
         loss_val : float
             MSE loss value.
         """
         # Unpack
-        states, actions, rewards, next_states, dones, _ = zip(*training_batch)
+        states, actions, extr_rewards, next_states, dones, _, intr_rewards = zip(
+            *training_batch
+        )
 
         # Process observations
         states = [self._process_obs(s) for s in states]
@@ -221,24 +233,34 @@ class RNDDQNAgent(DQNAgent):
 
         s = torch.tensor(np.array(states), dtype=torch.float32)
         a = torch.tensor(np.array(actions), dtype=torch.int64).unsqueeze(1)
-        r = torch.tensor(np.array(rewards), dtype=torch.float32)
+        extr_r = torch.tensor(np.array(extr_rewards), dtype=torch.float32)
         s_next = torch.tensor(np.array(next_states), dtype=torch.float32)
         mask = torch.tensor(np.array(dones), dtype=torch.float32)
+        intr_r = torch.tensor(np.array(intr_rewards), dtype=torch.float32)
+
+        # Compute RND bonus on-sample
+        if self.rnd_type == "on_sample":
+            intr_r = torch.tensor(
+                [self.get_rnd_bonus(s) for s in states], dtype=torch.float32
+            )
+
+        # Calculate mean extrinsic and intrinsic reward in the sampled minibatch
+        mean_extr = extr_r.mean().item()
+        mean_intr = intr_r.mean().item()
+
+        # Get combined reward for each sample
+        r = extr_r + intr_r
 
         # Current Q estimates for taken actions
         pred = self.q(s).gather(1, a).squeeze(1)
-
-        if self.rnd_type == "on_sample":
-            # Compute RND bonus on-sample
-            rnd_bonus = torch.tensor(
-                [self.get_rnd_bonus(s) for s in states], dtype=torch.float32
-            )
-            r += rnd_bonus
 
         # Compute TD target with frozen network
         with torch.no_grad():
             next_q = self.target_q(s_next).max(1)[0]
             target = r + self.gamma * next_q * (1 - mask)
+
+        # Compute TD error TODO: Is this correct?
+        td_error = target.mean().item()
 
         loss = nn.MSELoss()(pred, target)
 
@@ -252,9 +274,9 @@ class RNDDQNAgent(DQNAgent):
             self.target_q.load_state_dict(self.q.state_dict())
 
         self.total_steps += 1
-        return float(loss.item())
+        return [float(mean_extr), float(mean_intr), float(td_error), float(loss.item())]
 
-    def train(self, num_frames: int, file_path: str, eval_interval: int = 10) -> None:
+    def train(self, num_frames: int, saving_path: str, eval_interval: int = 10) -> None:
         """
         Run a training loop for a fixed number of frames.
 
@@ -262,62 +284,114 @@ class RNDDQNAgent(DQNAgent):
         ----------
         num_frames : int
             Total environment steps.
+        saving_path : str
+            Path to save training data (CSV).
         eval_interval : int
-            Every this many episodes, print average reward.
+            Build mean value of sampled minibatches every eval_interval steps.
         """
         print("Starting training...")
-        state, _ = self.env.reset()
+        state, _ = self.env.reset(seed=self.seed)
         state = self._process_obs(state)
         ep_reward = 0.0
         episode_rewards = []
         steps = []
+        epsilons = []
+        minibatch_values = []
 
         for frame in range(1, num_frames + 1):
             action = self.predict_action(
                 state, evaluate=True
             )  # Use greedy action selection
-            next_state, reward, done, truncated, _ = self.env.step(action)
+            next_state, extr_reward, done, truncated, _ = self.env.step(action)
             next_state = self._process_obs(next_state)
 
             # Apply RND bonus (naive)
+            intr_reward = 0.0
             if self.rnd_type == "naive":
-                reward += self.get_rnd_bonus(next_state)
+                intr_reward = self.get_rnd_bonus(next_state)
 
             # Store and step
-            self.buffer.add(state, action, reward, next_state, done or truncated, {})
+            self.buffer.add(
+                state,
+                action,
+                extr_reward,
+                next_state,
+                done or truncated,
+                {},
+                intr_reward,
+            )
             state = next_state
-            ep_reward += reward
+            ep_reward += extr_reward + intr_reward  # TODO save separatly?
 
             # Update if buffer is large enough
             if len(self.buffer) >= self.batch_size:
                 batch = self.buffer.sample(self.batch_size)
-                _ = self.update_agent(batch)
+                extr, intr, td, loss = self.update_agent(batch)
+                minibatch_values.append((frame, extr, intr, td, loss))
 
                 # Update RND if buffer is large enough
                 if self.total_steps % self.rnd_update_freq == 0:
                     self.update_rnd(batch)
 
             if done or truncated:
-                state, _ = self.env.reset()
+                state, _ = self.env.reset(seed=self.seed)
                 state = self._process_obs(state)
                 episode_rewards.append(ep_reward)
                 steps.append(frame)
+                epsilons.append(self.epsilon())
                 ep_reward = 0.0
 
                 # Logging
-                if len(episode_rewards) % eval_interval == 0:
-                    avg = np.mean(episode_rewards)
+                if len(episode_rewards) % 10 == 0:
+                    avg = np.mean(episode_rewards[-10:])
                     print(
-                        f"Frame {frame}, AvgReward({eval_interval}): {avg:.3f}, ε={self.epsilon():.5f}"
+                        f"Frame {frame}, AvgReward({10}): {avg:.3f}, ε={self.epsilon():.5f}"
                     )
 
         print("Training complete.")
 
-        # Save training data to CSV
-        training_data = pd.DataFrame(
+        # Compute mean values (float with self._decimals) from minibatch updates for every eval_interval
+        sample_steps, extrinsic_rewards, intrinsic_rewards, td_errors, losses = zip(
+            *minibatch_values
+        )
+        minibatch_frames = [
+            (i + self.batch_size) for i in range(0, len(sample_steps), eval_interval)
+        ]
+        mean_extrinsic_rewards = [
+            round(np.mean(extrinsic_rewards[i : i + eval_interval]), self._decimals)
+            for i in range(0, len(extrinsic_rewards), eval_interval)
+        ]
+        mean_intrinsic_rewards = [
+            round(np.mean(intrinsic_rewards[i : i + eval_interval]), self._decimals)
+            for i in range(0, len(intrinsic_rewards), eval_interval)
+        ]
+        mean_td_errors = [
+            round(np.mean(td_errors[i : i + eval_interval]), self._decimals)
+            for i in range(0, len(td_errors), eval_interval)
+        ]
+        mean_losses = [
+            round(np.mean(losses[i : i + eval_interval]), self._decimals)
+            for i in range(0, len(losses), eval_interval)
+        ]
+
+        # Save training data to CSV and round rewards to a fixed number of decimal places
+        ep_rew_file = os.path.join(saving_path, "episode_rewards.csv")
+        mb_rew_file = os.path.join(saving_path, "minibatch_rewards.csv")
+        episode_rewards_df = pd.DataFrame(
             {
                 "steps": steps,
-                "rewards": [round(r, self._decimals) for r in episode_rewards],
+                "rewards": [round(x, self._decimals) for x in episode_rewards],
+                "epsilon": [round(x, self._decimals) for x in epsilons],
             }
         )
-        training_data.to_csv(file_path, index=False)
+        minibatch_rewards_df = pd.DataFrame(
+            {
+                "steps": minibatch_frames,
+                "extrinsic": [round(x, self._decimals) for x in mean_extrinsic_rewards],
+                "intrinsic": [round(x, self._decimals) for x in mean_intrinsic_rewards],
+                "td": [round(x, self._decimals) for x in mean_td_errors],
+                "loss": [round(x, self._decimals) for x in mean_losses],
+            }
+        )
+        episode_rewards_df.to_csv(ep_rew_file, index=False, mode="a")
+        minibatch_rewards_df.to_csv(mb_rew_file, index=False, mode="a")
