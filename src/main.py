@@ -5,6 +5,7 @@ from datetime import datetime as dt
 import dqn
 import gymnasium as gym
 import hydra
+import numpy as np
 import rnd_dqn
 import torch
 import yaml
@@ -125,7 +126,13 @@ def train_agent(cfg: DictConfig):
     config_file = os.path.join(run_path, "config.yaml")
 
     # Build env with wrapper
-    env = build_env(cfg.env.name, cfg.env.wrapper)
+    env = build_env(env_name, cfg.env.wrapper)
+
+    # get env dimension
+    splits = env_name.split("-")
+    env_dim_str = splits[2]
+    width, height = map(int, env_dim_str.split("x"))
+    visitation_map = np.zeros((height, width), dtype=np.int32)
 
     # Set up agent
     agent = setup_agent(cfg, env)
@@ -134,7 +141,7 @@ def train_agent(cfg: DictConfig):
     time_start = time.time()
 
     # Train agent
-    agent.train(cfg.train.num_frames, run_path, cfg.train.eval_interval)
+    agent.train(cfg.train.num_frames, run_path, visitation_map, cfg.train.eval_interval)
 
     # Stop timer
     t = time.time() - time_start

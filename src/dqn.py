@@ -296,9 +296,13 @@ class DQNAgent(AbstractAgent):
             next_q = self.target_q(s_next).max(1)[0]
             target = r + self.gamma * next_q * (1 - mask)
 
-        # Compute TD error TODO: Is this correct?
-        td_error = target.mean().item()
+        # Compute TD error
+        td_error = pred - target
 
+        # to quantify instability of td-error
+        td_error_std = td_error.std().item()
+
+        # same as mean_td_error
         loss = nn.MSELoss()(pred, target)
 
         # Gradient step
@@ -311,10 +315,18 @@ class DQNAgent(AbstractAgent):
             self.target_q.load_state_dict(self.q.state_dict())
 
         self.total_steps += 1
-        return [float(mean_extr), float(td_error), float(loss.item())]
+        return [
+            float(mean_extr),
+            float(td_error_std),
+            float(loss.item()),
+        ]
 
     def train(
-        self, num_frames: int, saving_path: str, eval_interval: int = 100
+        self,
+        num_frames: int,
+        saving_path: str,
+        visitation_map,
+        eval_interval: int = 100,
     ) -> None:
         """
         Run a training loop for a fixed number of frames.
@@ -340,6 +352,11 @@ class DQNAgent(AbstractAgent):
             action = self.predict_action(state)
             next_state, reward, done, truncated, _ = self.env.step(action)
 
+            # log agent position
+            base_env = self.env.unwrapped
+            x, y = base_env.agent_pos
+            visitation_map[y, x] += 1
+
             # Store
             self.buffer.add(state, action, reward, next_state, done or truncated, {})
             state = next_state
@@ -348,8 +365,8 @@ class DQNAgent(AbstractAgent):
             # Update if buffer is large enough
             if len(self.buffer) >= self.batch_size:
                 batch = self.buffer.sample(self.batch_size)
-                extr, td, loss = self.update_agent(batch)
-                minibatch_values.append((frame, extr, td, loss))
+                extr, td_std, loss = self.update_agent(batch)
+                minibatch_values.append((frame, extr, td_std, loss))
 
             if done or truncated:
                 state, _ = self.env.reset(seed=self.seed)
@@ -368,7 +385,7 @@ class DQNAgent(AbstractAgent):
         print("Training complete.")
 
         # Compute mean values (float with self._decimals) from minibatch updates for every eval_interval
-        sample_steps, extrinsic_rewards, td_errors, losses = zip(*minibatch_values)
+        sample_steps, extrinsic_rewards, td_std, losses = zip(*minibatch_values)
         minibatch_frames = [
             (i + self.batch_size) for i in range(0, len(sample_steps), eval_interval)
         ]
@@ -376,9 +393,9 @@ class DQNAgent(AbstractAgent):
             round(np.mean(extrinsic_rewards[i : i + eval_interval]), self._decimals)
             for i in range(0, len(extrinsic_rewards), eval_interval)
         ]
-        mean_td_errors = [
-            round(np.mean(td_errors[i : i + eval_interval]), self._decimals)
-            for i in range(0, len(td_errors), eval_interval)
+        td_errors_std = [
+            round(np.mean(td_std[i : i + eval_interval]), self._decimals)
+            for i in range(0, len(td_std), eval_interval)
         ]
         mean_losses = [
             round(np.mean(losses[i : i + eval_interval]), self._decimals)
@@ -388,6 +405,7 @@ class DQNAgent(AbstractAgent):
         # Save training data to CSV and round rewards to a fixed number of decimal places
         ep_rew_file = os.path.join(saving_path, "episode_rewards.csv")
         mb_rew_file = os.path.join(saving_path, "minibatch_rewards.csv")
+        vis_map_file = os.path.join(saving_path, "visitation_map.csv")
         episode_rewards_df = pd.DataFrame(
             {
                 "steps": steps,
@@ -399,9 +417,12 @@ class DQNAgent(AbstractAgent):
             {
                 "steps": minibatch_frames,
                 "extrinsic": [round(x, self._decimals) for x in mean_extrinsic_rewards],
-                "td": [round(x, self._decimals) for x in mean_td_errors],
+                "td_std": [round(x, self._decimals) for x in td_errors_std],
                 "loss": [round(x, self._decimals) for x in mean_losses],
             }
         )
+        visitation_map_df = pd.DataFrame(visitation_map)
+
         episode_rewards_df.to_csv(ep_rew_file, index=False, mode="a")
         minibatch_rewards_df.to_csv(mb_rew_file, index=False, mode="a")
+        visitation_map_df.to_csv(vis_map_file, index=False)
