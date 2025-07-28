@@ -1,0 +1,28 @@
+# @package _global_
+env:
+  name: "MiniGrid-DoorKey-6x6-v0"
+  wrapper: "FlatObsWrapper"
+
+seed: 0
+
+agent:
+  type: "dqn"
+  buffer_capacity: 20000
+  batch_size: 32
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_final: 0.1
+  epsilon_decay: 50000
+  dqn_hidden_size: 64
+  dqn_lr: 0.001
+  dqn_target_update_freq: 500
+
+train:
+  num_frames: 200000  # Shorter for sweeps
+  eval_interval: 100
+  saved_decimals: 5
+
+# For sweep identification
+sweep:
+  run_id: null
+  phase: "dqn_baseline"
