@@ -12,29 +12,9 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from agent import AbstractAgent
-from buffers import ReplayBuffer
-from networks import CNN, MLP
-
-# def set_seed(env: gym.Env, seed: int = 0) -> None:
-#     """
-#     Seed Python, NumPy, PyTorch and the Gym environment for reproducibility.
-
-#     Parameters
-#     ----------
-#     env : gym.Env
-#         The Gym environment to seed.
-#     seed : int
-#         Random seed.
-#     """
-#     np.random.seed(seed)
-#     torch.manual_seed(seed)
-#     env.reset(seed=seed)
-#     # Some spaces also support .seed()
-#     if hasattr(env.action_space, "seed"):
-#         env.action_space.seed(seed)
-#     if hasattr(env.observation_space, "seed"):
-#         env.observation_space.seed(seed)
+from abstract import AbstractAgent
+from agent.networks import CNN, MLP
+from agent.replay_buffer import ReplayBuffer
 
 
 class DQNAgent(AbstractAgent):
@@ -59,7 +39,6 @@ class DQNAgent(AbstractAgent):
         epsilon_decay: int = 5000,
         dqn_target_update_freq: int = 1000,
         dqn_hidden_size: int = 64,
-        decimals: int = 5,
         seed: int = 0,
     ) -> None:
         """
@@ -101,9 +80,6 @@ class DQNAgent(AbstractAgent):
             dqn_hidden_size,
             seed,
         )
-        # private constants
-        self._decimals = decimals  # For rounding entries in CSV
-
         self.env = env
         self.seed = seed
         self.env.reset(seed=self.seed)
@@ -168,7 +144,7 @@ class DQNAgent(AbstractAgent):
 
         return np.asarray(obs, dtype=np.float32)
 
-    def epsilon(self) -> float:
+    def _epsilon(self) -> float:
         """
         Compute current ε by exponential decay.
 
@@ -181,7 +157,7 @@ class DQNAgent(AbstractAgent):
             -1.0 * self.total_steps / self.epsilon_decay
         )
 
-    def predict_action(
+    def _predict_action(
         self, state: np.ndarray, info: Dict[str, Any] = {}, evaluate: bool = False
     ) -> Tuple[int, Dict]:
         """
@@ -190,7 +166,7 @@ class DQNAgent(AbstractAgent):
         Parameters
         ----------
         state : np.ndarray
-            Current observation.
+            Current observation. Alreadsy processed by _process_obs.
         info : dict
             Gym info dict (unused here).
         evaluate : bool
@@ -202,8 +178,6 @@ class DQNAgent(AbstractAgent):
         info_out : dict
             Empty dict (compatible with interface).
         """
-        state = self._process_obs(state)
-
         if evaluate:
             # Purely greedy
             t = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
@@ -212,7 +186,7 @@ class DQNAgent(AbstractAgent):
             action = int(torch.argmax(qvals, dim=1).item())
         else:
             # ε-greedy
-            if np.random.rand() < self.epsilon():
+            if np.random.rand() < self._epsilon():
                 action = self.env.action_space.sample()
             else:
                 t = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
@@ -221,6 +195,147 @@ class DQNAgent(AbstractAgent):
                 action = int(torch.argmax(qvals, dim=1).item())
 
         return action
+
+    def _update_agent(
+        self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict]]
+    ) -> tuple[float, float, float]:
+        """
+        Perform one gradient update on a batch of transitions.
+
+        Parameters
+        ----------
+        training_batch : list of transitions
+            Each is (state, action, extrinsic_reward, next_state, done, info).
+            state and next_state are already processed by _process_obs.
+
+        Returns
+        -------
+        mean_extr : float
+            Mean extrinsic reward for minibatch
+        loss : float
+            MSE loss value = TD error
+        td_std : float
+            Standard deviation of TD error for minibatch
+        """
+        # Unpack
+        states, actions, rewards, next_states, dones, _ = zip(*training_batch)
+
+        s = torch.tensor(np.array(states), dtype=torch.float32)
+        a = torch.tensor(np.array(actions), dtype=torch.int64).unsqueeze(1)
+        r = torch.tensor(np.array(rewards), dtype=torch.float32)
+        s_next = torch.tensor(np.array(next_states), dtype=torch.float32)
+        mask = torch.tensor(np.array(dones), dtype=torch.float32)
+
+        # Calculate mean extrinsic reward in the sampled minibatch
+        mean_extr = r.mean().item()
+
+        # Current Q estimates for taken actions
+        pred = self.q(s).gather(1, a).squeeze(1)
+
+        # Compute TD target with frozen network
+        with torch.no_grad():
+            next_q = self.target_q(s_next).max(1)[0]
+            target = r + self.gamma * next_q * (1 - mask)
+
+        # Compute loss = TD error
+        loss = nn.MSELoss()(pred, target)
+
+        # Compute standard deviation of TD error
+        td_std = (pred - target).std().item()
+
+        # Gradient step
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Occasionally sync target network
+        if self.total_steps % self.dqn_target_update_freq == 0:
+            self.target_q.load_state_dict(self.q.state_dict())
+
+        self.total_steps += 1
+
+        return [
+            float(mean_extr),
+            float(loss.item()),
+            float(td_std),
+        ]
+
+    def _save_training_data(
+        self,
+        saving_path: str,
+        file_name: str,
+        training_data,
+        mean_window: int = 100,
+        save_every_n: int = 20,
+        decimals: int = 5,
+    ) -> None:
+        """
+        Save training data to CSV files.
+        Handles visitation map (np.ndarray), episode rewards (list of tuples),
+        and minibatch values (list of tuples).
+
+        Parameters
+        ----------
+        saving_path : str
+            Path to save the CSV file.
+        file_name : str
+            Name of the CSV file.
+        training_data : np.ndarray or list of tuples
+            Data to save:
+            - For visitation map: np.ndarray
+            - For episode rewards: list of tuples (frame, reward, epsilon)
+            - For minibatch values: list of tuples (frame, extrinsic, loss, td_std)
+        mean_window : int, optional
+            For minibatch data: rolling window size for averaging
+        save_every_n : int
+            For minibatch data: save only every nth data point to reduce file size
+        """
+        os.makedirs(saving_path, exist_ok=True)
+        file_path = os.path.join(saving_path, file_name)
+
+        if isinstance(training_data, np.ndarray):
+            # Visitation map
+            df = pd.DataFrame(training_data)
+            df.to_csv(file_path, index=False)
+        elif isinstance(training_data, list) and len(training_data) > 0:
+            first = training_data[0]
+            if isinstance(first, tuple):
+                if len(first) == 3:
+                    # Episode rewards: (frame, reward, epsilon)
+                    df = pd.DataFrame(
+                        training_data, columns=["steps", "rewards", "epsilon"]
+                    )
+                    df["rewards"] = df["rewards"].round(decimals)
+                    df["epsilon"] = df["epsilon"].round(decimals)
+                    df.to_csv(file_path, index=False)
+                elif len(first) == 4:
+                    # Minibatch values: (frame, extrinsic, loss, td_std)
+                    df = pd.DataFrame(
+                        training_data, columns=["steps", "extrinsic", "loss", "td_std"]
+                    )
+                    df[["extrinsic", "loss", "td_std"]] = df[
+                        ["extrinsic", "loss", "td_std"]
+                    ].round(decimals)
+                    # Calculate rolling mean first, then subsample
+                    df_means = (
+                        df[["extrinsic", "loss", "td_std"]]
+                        .rolling(window=mean_window)
+                        .mean()
+                    )
+                    df_means["steps"] = df["steps"]
+                    df_means = df_means.dropna()
+                    df_means = df_means[["steps", "extrinsic", "loss", "td_std"]]
+                    # Subsample the averaged data
+                    df_final = df_means.iloc[::save_every_n]
+                    df_final.to_csv(file_path, index=False)
+                else:
+                    raise ValueError("Unknown tuple structure in training_data list.")
+            else:
+                raise ValueError(
+                    "List elements must be tuples for episode/minibatch data."
+                )
+        else:
+            raise ValueError("Unsupported training_data type for saving.")
 
     def save(self, path: str) -> None:
         """
@@ -252,81 +367,16 @@ class DQNAgent(AbstractAgent):
         self.q.load_state_dict(checkpoint["parameters"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
 
-    def update_agent(
-        self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict]]
-    ) -> tuple[float, float, float]:
-        """
-        Perform one gradient update on a batch of transitions.
-
-        Parameters
-        ----------
-        training_batch : list of transitions
-            Each is (state, action, reward, next_state, done, info).
-
-        Returns
-        -------
-        mean_extr : float
-            Mean extrinsic reward for minibatch
-        td : float
-            TD error computed during update
-        loss_val : float
-            MSE loss value.
-        """
-        # Unpack
-        states, actions, rewards, next_states, dones, _ = zip(*training_batch)
-
-        # Process observations
-        states = [self._process_obs(s) for s in states]
-        next_states = [self._process_obs(s) for s in next_states]
-
-        s = torch.tensor(np.array(states), dtype=torch.float32)
-        a = torch.tensor(np.array(actions), dtype=torch.int64).unsqueeze(1)
-        r = torch.tensor(np.array(rewards), dtype=torch.float32)
-        s_next = torch.tensor(np.array(next_states), dtype=torch.float32)
-        mask = torch.tensor(np.array(dones), dtype=torch.float32)
-
-        # Calculate the mean extrinsic reward in the sampled minibatch
-        mean_extr = r.mean().item()
-
-        # Current Q estimates for taken actions
-        pred = self.q(s).gather(1, a).squeeze(1)
-
-        # Compute TD target with frozen network
-        with torch.no_grad():
-            next_q = self.target_q(s_next).max(1)[0]
-            target = r + self.gamma * next_q * (1 - mask)
-
-        # Compute TD error
-        td_error = pred - target
-
-        # to quantify instability of td-error
-        td_error_std = td_error.std().item()
-
-        # same as mean_td_error
-        loss = nn.MSELoss()(pred, target)
-
-        # Gradient step
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        # Occasionally sync target network
-        if self.total_steps % self.dqn_target_update_freq == 0:
-            self.target_q.load_state_dict(self.q.state_dict())
-
-        self.total_steps += 1
-        return [
-            float(mean_extr),
-            float(td_error_std),
-            float(loss.item()),
-        ]
-
     def train(
         self,
         num_frames: int,
         saving_path: str,
-        visitation_map,
-        eval_interval: int = 100,
+        visitation_map: np.ndarray,
+        vmap_save_every_n: int = 50000,
+        minibatch_window: int = 100,
+        minibatch_save_every_n: int = 20,
+        eval_interval: int = 10,
+        decimals: int = 5,
     ) -> None:
         """
         Run a training loop for a fixed number of frames.
@@ -337,92 +387,83 @@ class DQNAgent(AbstractAgent):
             Total environment steps.
         saving_path : str
             Path to save training data (CSV).
+        visitation_map : np.ndarray
+            Visitation map to track agent position.
+        vmap_save_every_n : int, optional
+            Save visitation map every nth step to reduce file size.
+        minibatch_window : int, optional
+            Rolling window size for averaging minibatch values.
+        minibatch_save_every_n : int, optional
+            Save minibatch values every nth step to reduce file size.
         eval_interval : int
-            Build mean value of sampled minibatches every eval_interval steps.
+            Print average episode reward every eval_interval steps in terminal.
         """
         print("Starting training...")
         state, _ = self.env.reset(seed=self.seed)
+        state = self._process_obs(state)
         ep_reward = 0.0
         episode_rewards = []
-        steps = []
-        epsilons = []
         minibatch_values = []
 
         for frame in range(1, num_frames + 1):
-            action = self.predict_action(state)
+            action = self._predict_action(state)
             next_state, reward, done, truncated, _ = self.env.step(action)
+            next_state = self._process_obs(next_state)
 
-            # log agent position
+            # Log agent position for visitation map
             base_env = self.env.unwrapped
             x, y = base_env.agent_pos
             visitation_map[y, x] += 1
 
-            # Store
+            # Save visitation map every vmap_save_every_n steps
+            if frame % vmap_save_every_n == 0:
+                vmap_file = os.path.join(saving_path, f"visitation_map_{frame}.csv")
+                self._save_training_data(
+                    saving_path, vmap_file, visitation_map, decimals=decimals
+                )
+
+            # Store transition in replay buffer
             self.buffer.add(state, action, reward, next_state, done or truncated, {})
             state = next_state
             ep_reward += reward
 
-            # Update if buffer is large enough
+            # Update agent if buffer is large enough to sample minibatch
             if len(self.buffer) >= self.batch_size:
                 batch = self.buffer.sample(self.batch_size)
-                extr, td_std, loss = self.update_agent(batch)
-                minibatch_values.append((frame, extr, td_std, loss))
+                extr, loss, td_std = self._update_agent(batch)
+                minibatch_values.append((frame, extr, loss, td_std))
 
+            # Reset environment if episode is done or truncated and save last episodes reward
             if done or truncated:
                 state, _ = self.env.reset(seed=self.seed)
-                episode_rewards.append(ep_reward)
-                steps.append(frame)
-                epsilons.append(self.epsilon())
+                state = self._process_obs(state)
+                episode_rewards.append((frame, ep_reward, self._epsilon()))
                 ep_reward = 0.0
 
-                # Logging
-                if len(episode_rewards) % 10 == 0:
-                    avg = np.mean(episode_rewards[-10:])
+                # Logging mean episode reward every eval_interval episodes (for terminal)
+                if len(episode_rewards) % eval_interval == 0:
+                    avg = np.mean(episode_rewards[-eval_interval:])
                     print(
-                        f"Frame {frame}, AvgReward({10}): {avg:.3f}, ε={self.epsilon():.5f}"
+                        f"Frame {frame}, AvgReward({eval_interval}): {avg:.3f}, ε={self._epsilon():.5f}"
                     )
 
         print("Training complete.")
 
-        # Compute mean values (float with self._decimals) from minibatch updates for every eval_interval
-        sample_steps, extrinsic_rewards, td_std, losses = zip(*minibatch_values)
-        minibatch_frames = [
-            (i + self.batch_size) for i in range(0, len(sample_steps), eval_interval)
-        ]
-        mean_extrinsic_rewards = [
-            round(np.mean(extrinsic_rewards[i : i + eval_interval]), self._decimals)
-            for i in range(0, len(extrinsic_rewards), eval_interval)
-        ]
-        td_errors_std = [
-            round(np.mean(td_std[i : i + eval_interval]), self._decimals)
-            for i in range(0, len(td_std), eval_interval)
-        ]
-        mean_losses = [
-            round(np.mean(losses[i : i + eval_interval]), self._decimals)
-            for i in range(0, len(losses), eval_interval)
-        ]
-
-        # Save training data to CSV and round rewards to a fixed number of decimal places
-        ep_rew_file = os.path.join(saving_path, "episode_rewards.csv")
-        mb_rew_file = os.path.join(saving_path, "minibatch_rewards.csv")
-        vis_map_file = os.path.join(saving_path, "visitation_map.csv")
-        episode_rewards_df = pd.DataFrame(
-            {
-                "steps": steps,
-                "rewards": [round(x, self._decimals) for x in episode_rewards],
-                "epsilon": [round(x, self._decimals) for x in epsilons],
-            }
+        # Save training data to CSV files
+        self._save_training_data(
+            saving_path,
+            f"visitation_map_{num_frames}.csv",
+            visitation_map,
+            decimals=decimals,
         )
-        minibatch_rewards_df = pd.DataFrame(
-            {
-                "steps": minibatch_frames,
-                "extrinsic": [round(x, self._decimals) for x in mean_extrinsic_rewards],
-                "td_std": [round(x, self._decimals) for x in td_errors_std],
-                "loss": [round(x, self._decimals) for x in mean_losses],
-            }
+        self._save_training_data(
+            saving_path, "episode_rewards.csv", episode_rewards, decimals=decimals
         )
-        visitation_map_df = pd.DataFrame(visitation_map)
-
-        episode_rewards_df.to_csv(ep_rew_file, index=False, mode="a")
-        minibatch_rewards_df.to_csv(mb_rew_file, index=False, mode="a")
-        visitation_map_df.to_csv(vis_map_file, index=False)
+        self._save_training_data(
+            saving_path,
+            "minibatch_values.csv",
+            minibatch_values,
+            mean_window=minibatch_window,
+            save_every_n=minibatch_save_every_n,
+            decimals=decimals,
+        )
