@@ -311,10 +311,7 @@ class RNDDQNAgent(DQNAgent):
         minibatch_values = []
 
         for frame in range(1, num_frames + 1):
-            # action = self.env.action_space.sample()
-            action = self.predict_action(
-                state, evaluate=False
-            )  # Use greedy action selection
+            action = self.predict_action(state)  # Use greedy action selection
             next_state, extr_reward, done, truncated, _ = self.env.step(action)
             next_state = self._process_obs(next_state)
 

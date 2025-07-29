@@ -8,7 +8,6 @@ import hydra
 import numpy as np
 import rnd_dqn
 import torch
-import yaml
 from minigrid.wrappers import FlatObsWrapper, RGBImgObsWrapper
 from omegaconf import DictConfig, OmegaConf
 
@@ -107,21 +106,56 @@ def setup_agent(cfg: DictConfig, env: gym.Env) -> dqn.DQNAgent:
     return agent
 
 
-def train_agent(cfg: DictConfig):
-    # get env name and agent type
+def set_results_dir(cfg: DictConfig) -> str:
+    """
+    Set the results directory based on the configuration.
+
+    Returns
+    -------
+    str
+        Path to the results directory
+    """
+    file_path = os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(os.path.join(file_path, "../results"), exist_ok=True)
+
+    # Create unique folder name
+    if hasattr(cfg, "sweep") and cfg.sweep.run_id is not None:
+        if cfg.agent.type == "dqn":
+            run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}/{cfg.sweep.run_id}"
+        else:
+            run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{cfg.seed}/{cfg.sweep.run_id}"
+    else:
+        run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}_time_{dt.now().isoformat()}"
+
+    run_path = os.path.join(file_path, "../results", run_folder)
+
+    # Check if sweep run_id folder exists
+    # if hasattr(cfg, 'sweep') and cfg.sweep.run_id is not None and os.path.exists(run_path):
+    #     raise FileExistsError(f"Results directory for sweep run_id '{cfg.sweep.run_id}' already exists: {run_path}")
+
+    os.makedirs(run_path, exist_ok=True)
+
+    return run_path
+
+
+def train_agent(cfg: DictConfig) -> str:
+    """
+    Train an agent and return the results directory path.
+
+    Returns
+    -------
+    str
+        Path to the results directory
+    """
+    # Get env name and agent type
     env_name = cfg.env.name
     agent_type = cfg.agent.type
-    if agent_type == "rnd":
+    if agent_type == "rnd":  # Override agent type if RND agent
         rnd_type = cfg.agent.rnd_type
         agent_type = f"{agent_type}_{rnd_type}"
 
-    # generate folder for new training data (increase number for folder name)
-    file_path = os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(os.path.join(file_path, "../results"), exist_ok=True)
-    run_folder = f"{env_name}_{agent_type}_run_{dt.now().isoformat()}"
-    run_path = os.path.join(file_path, "../results", run_folder)
-    os.makedirs(run_path, exist_ok=True)
-
+    # Set results directory and model/config file paths
+    run_path = set_results_dir(cfg)
     model_file = os.path.join(run_path, "model.pth")
     config_file = os.path.join(run_path, "config.yaml")
 
@@ -153,17 +187,21 @@ def train_agent(cfg: DictConfig):
         model_file,
     )
 
-    # Save config to yaml
-    config_to_save = OmegaConf.to_container(cfg, resolve=True)
-    config_to_save["run_time"] = t
+    # Save config and training time
     with open(config_file, "w") as f:
-        yaml.dump(config_to_save, f)
+        OmegaConf.save(cfg, f)
+    with open(os.path.join(run_path, "runtime.txt"), "w") as f:
+        f.write(f"{t:.2f}\n")
+
+    print(f"Results saved to: {run_path}")
+
+    return run_path  # Return the path for sweep analysis
 
 
 # def visu_trained_agent():
 
 
-@hydra.main(config_path="../config/", config_name="dqn", version_base="1.1")
+@hydra.main(config_path="../config/", config_name="dqn", version_base="1.2")
 def main(cfg: DictConfig):
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":
