@@ -45,11 +45,9 @@ def parse_performance_metric(results_dir: str) -> float:
             print(f"Too few episodes: {len(df)}")
             return -float("inf")
 
-        # Calculate episode lengths from step differences
+        # Calculate episode lengths from step differences (current_step - previous_step)
         steps = df["steps"].values
         rewards = df["rewards"].values
-
-        # Calculate episode lengths (current_step - previous_step)
         episode_lengths = []
         prev_step = 0
 
@@ -60,38 +58,28 @@ def parse_performance_metric(results_dir: str) -> float:
 
         episode_lengths = np.array(episode_lengths)
 
-        # Filter out episodes that were truncated (took maximum steps)
-        # Only consider successful episodes (those with positive rewards or < MAX_EPISODE_STEPS)
+        # Get average episode length of last 25% of episodes
+        if len(episode_lengths) < 4:
+            print("Not enough episodes to calculate average length")
+            return -float("inf")
+        last_25_percent = int(len(episode_lengths) * 0.75)
+        final_episode_lengths = episode_lengths[last_25_percent:]
+        avg_episode_length = np.mean(final_episode_lengths)
+
+        # Get amount of successful episodes
         successful_episodes = []
 
         for i, (length, reward) in enumerate(zip(episode_lengths, rewards)):
             # Consider episode successful if it completed in less than max steps
-            if length < MAX_EPISODE_STEPS:  # reward > 0 or (sinnvoll?)
+            if length < MAX_EPISODE_STEPS and reward > 0:
                 successful_episodes.append(length)
 
-        if len(successful_episodes) == 0:
-            print("No successful episodes found")
-            # Return penalty based on average length of all episodes
-            avg_length = np.mean(episode_lengths)
-            return -(avg_length / MAX_EPISODE_STEPS)  # Normalized penalty
-
-        # Use last 20% of successful episodes for more stable metric
-        if len(successful_episodes) >= 5:
-            last_20_percent = int(len(successful_episodes) * 0.8)
-            final_successful_episodes = successful_episodes[last_20_percent:]
-        else:
-            final_successful_episodes = successful_episodes
-
-        # Calculate average episode length for successful episodes
-        avg_episode_length = np.mean(final_successful_episodes)
-
-        # Convert to performance metric (shorter episodes = higher score)
-        # Normalize by max steps and make negative so shorter is better
-        performance = -(avg_episode_length / MAX_EPISODE_STEPS)
+        # Normalize by max steps
+        performance = avg_episode_length / MAX_EPISODE_STEPS
 
         print(f"Successful episodes: {len(successful_episodes)}")
         print(f"Average episode length (successful): {avg_episode_length:.2f}")
-        print(f"Performance metric (negative normalized length): {performance:.4f}")
+        print(f"Performance metric (normalized length): {performance:.4f}")
 
         return float(performance)
 
@@ -101,7 +89,7 @@ def parse_performance_metric(results_dir: str) -> float:
 
 
 @hydra.main(
-    config_path="../config/", config_name="test_smac", version_base="1.2"
+    config_path="../config/", config_name="dqn_sweep_smac", version_base="1.2"
 )  # Changed config name
 def sweep_main(cfg: DictConfig) -> float:
     """
