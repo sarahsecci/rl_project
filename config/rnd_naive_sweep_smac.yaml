@@ -8,15 +8,14 @@ defaults:
 
 # Global flags
 seed: 0
-n_trials: 9
-num_frames: 90000
+n_trials: 100
 
 # Hydra output & sweeper settings
 hydra:
   run:
-    dir: ../results/sweeps/${env.name}_${agent.type}_seed_${seed}
+    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
   sweep:
-    dir: ../results/sweeps/${env.name}_${agent.type}_seed_${seed}
+    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
   sweeper:
     n_trials: ${n_trials}
     budget_variable: train.num_frames # fidelity variable
@@ -32,8 +31,8 @@ hydra:
         scenario:
           n_trials: ${hydra.sweeper.n_trials}
           seed: ${seed}
-          min_budget: 15000      # minimum num_frames for first round
-          max_budget: 90000     # maximum num_frames for final round
+          min_budget: 35000      # minimum num_frames for first round
+          max_budget: 105000     # maximum num_frames for final round
           deterministic: true
           n_workers: 1
           output_directory: ${hydra.sweep.dir}
@@ -41,12 +40,12 @@ hydra:
   
 # Environment configuration
 env:
-  name: "MiniGrid-Empty-6x6-v0"
+  name: "MiniGrid-DoorKey-6x6-v0"
   wrapper: "FlatObsWrapper"
 
 # Agent base configuration
 agent:
-  type: "dqn"
+  type: "rnd"
   buffer_capacity: 20000
   batch_size: 32
   gamma: 0.99
@@ -56,12 +55,20 @@ agent:
   dqn_hidden_size: 64
   dqn_lr: 0.001
   dqn_target_update_freq: 500
+  
+  # RND-specific parameters
+  rnd_type: "naive"
+  rnd_hidden_size: 64
+  rnd_output_size: 8
+  rnd_lr: 0.001
+  rnd_update_freq: 1
+  rnd_reward_weight: 0.01
 
 # Training configuration
 train:
-  num_frames: ${num_frames}
-  vmap_save_every_n:      30000
-  minibatch_window:       250 
+  num_frames: 50000
+  vmap_save_every_n: 50000
+  minibatch_window: 250 
   minibatch_save_every_n: 50  
   eval_interval: 10
   saved_decimals: 5
@@ -69,12 +76,13 @@ train:
 # For sweep identification
 sweep:
   run_id: null
-  phase: "dqn"
+  phase: "rnd_naive"
 
 # Search space definition
 search_space:
   seed: ${seed}
   hyperparameters:
+    # DQN hyperparameters
     agent.buffer_capacity:
       type: uniform_int
       lower: 10000
@@ -96,15 +104,41 @@ search_space:
     agent.epsilon_decay:
       type: uniform_int
       lower: 20000
-      upper: 250000
+      upper: 150000
       log: false
-    agent.dqn_target_update_freq:
-      type: uniform_int
-      lower: 100
-      upper: 1000
-      log: false
+    agent.dqn_hidden_size:
+      type: categorical
+      choices: [32, 64]
     agent.dqn_lr:
       type: uniform_float
       lower: 1e-4
       upper: 1e-3
       log: true
+    agent.dqn_target_update_freq:
+      type: uniform_int
+      lower: 100
+      upper: 1000
+      log: false
+    
+    # RND-specific hyperparameters
+    agent.rnd_hidden_size:
+      type: categorical
+      choices: [32, 64]
+    agent.rnd_output_size:
+      type: categorical
+      choices: [8, 16, 32]
+    agent.rnd_lr:
+      type: uniform_float
+      lower: 1e-4
+      upper: 1e-3
+      log: true
+    agent.rnd_update_freq:
+      type: uniform_int
+      lower: 100
+      upper: 1000
+      log: false
+    agent.rnd_reward_weight:
+      type: uniform_float
+      lower: 1e-3
+      upper: 1
+      log: true  # Log scale for reward weighting
