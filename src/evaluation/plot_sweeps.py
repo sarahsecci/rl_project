@@ -38,16 +38,15 @@ def plot_episode_rewards(
 
         for i, (csv_file, label) in enumerate(zip(csv_files, labels)):
             df = pd.read_csv(csv_file)
-            episodes = np.arange(len(df))
 
             # Calculate rolling average for rewards
             rewards_smooth = (
                 df["rewards"].rolling(window=window_size, min_periods=1).mean()
             )
 
-            # Plot rewards on left y-axis
+            # Plot rewards on left y-axis using steps as x-axis
             ax1.plot(
-                episodes,
+                df["steps"],
                 rewards_smooth,
                 label=f"Run {label}",
                 linewidth=1.2,
@@ -57,7 +56,7 @@ def plot_episode_rewards(
 
             # Plot epsilon on right y-axis with dashed line
             ax2.plot(
-                episodes,
+                df["steps"],
                 df["epsilon"],
                 linestyle="--",
                 alpha=0.4,
@@ -65,11 +64,11 @@ def plot_episode_rewards(
                 linewidth=0.8,
             )
 
-        ax1.set_xlabel("Episode", fontsize=12)
+        ax1.set_xlabel("Steps", fontsize=12)
         ax1.set_ylabel("Average Reward", fontsize=12, color="black")
         ax2.set_ylabel("Epsilon", fontsize=12, color="gray")
         ax1.set_title(
-            f"Episode Rewards (Moving Average, window={window_size}) and Epsilon",
+            f"Episode Rewards (Moving Average, window={window_size}) and Epsilon vs Steps",
             fontsize=14,
         )
 
@@ -88,7 +87,6 @@ def plot_episode_rewards(
 
         for i, (csv_file, label) in enumerate(zip(csv_files, labels)):
             df = pd.read_csv(csv_file)
-            episodes = np.arange(len(df))
 
             # Calculate rolling average for rewards
             rewards_smooth = (
@@ -96,7 +94,7 @@ def plot_episode_rewards(
             )
 
             ax.plot(
-                episodes,
+                df["steps"],
                 rewards_smooth,
                 label=f"Run {label}",
                 linewidth=1.2,
@@ -104,10 +102,10 @@ def plot_episode_rewards(
                 alpha=0.8,
             )
 
-        ax.set_xlabel("Episode", fontsize=12)
+        ax.set_xlabel("Steps", fontsize=12)
         ax.set_ylabel("Average Reward", fontsize=12)
         ax.set_title(
-            f"Episode Rewards Comparison (Moving Average, window={window_size})",
+            f"Episode Rewards Comparison (Moving Average, window={window_size}) vs Steps",
             fontsize=14,
         )
         ax.grid(True, alpha=0.3)
@@ -122,7 +120,7 @@ if __name__ == "__main__":
     file_path = os.path.dirname(os.path.abspath(__file__))
     results_dir = os.path.join(file_path, "../../results/sweeps")
 
-    sweep = "MiniGrid-DoorKey-6x6-v0_rnd_naive_seed_0"
+    sweep = "MiniGrid-DoorKey-6x6-v0_dqn_seed_0"
 
     # Check if the sweep directory exists
     sweep_path = os.path.join(results_dir, sweep)

@@ -181,10 +181,13 @@ def train_agent(cfg: DictConfig) -> str:
 
     visitation_map = set_visitation_map(cfg.env.name)
 
+    # Convert num_frames to integer (SMAC passes floats for budget)
+    num_frames = int(cfg.train.num_frames)
+
     # Train agent and measure training time
     time_start = time.time()
     agent.train(
-        num_frames=cfg.train.num_frames,
+        num_frames=num_frames,
         saving_path=run_path,
         visitation_map=visitation_map,
         vmap_save_every_n=cfg.train.vmap_save_every_n,

@@ -444,7 +444,8 @@ class RNDDQNAgent(DQNAgent):
 
                 # Logging mean episode reward every eval_interval episodes (for terminal)
                 if len(episode_rewards) % eval_interval == 0:
-                    avg = np.mean(episode_rewards[-eval_interval:])
+                    recent_rewards = [ep[1] for ep in episode_rewards[-eval_interval:]]
+                    avg = np.mean(recent_rewards)
                     print(
                         f"Frame {frame}, AvgReward({eval_interval}): {avg:.3f}, ε={self._epsilon():.5f}"
                     )

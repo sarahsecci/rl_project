@@ -1,0 +1,136 @@
+# @package _global_
+
+# Defaults & plugin override
+defaults:
+  - sweep_base
+  - _self_
+  - override hydra/sweeper: HyperSMAC
+
+# Global flags
+seed: 3
+n_trials: 27
+num_frames: 200000
+
+# Hydra output & sweeper settings
+hydra:
+  run:
+    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
+  sweep:
+    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
+  sweeper:
+    n_trials: ${n_trials}
+    budget_variable: train.num_frames # fidelity variable
+    sweeper_kwargs:
+      optimizer_kwargs:
+        smac_facade:
+          _target_: smac.facade.multi_fidelity_facade.MultiFidelityFacade
+          _partial_: true
+        intensifier:
+          _target_: smac.facade.multi_fidelity_facade.MultiFidelityFacade.get_intensifier
+          _partial_: true
+          eta: 3
+        scenario:
+          n_trials: ${hydra.sweeper.n_trials}
+          seed: ${seed}
+          min_budget: 30000      # minimum num_frames for first round
+          max_budget: 200000     # maximum num_frames for final round
+          deterministic: true
+          n_workers: 1
+          output_directory: ${hydra.sweep.dir}
+    search_space: ${search_space}
+  
+# Environment configuration
+env:
+  name: "MiniGrid-DoorKey-6x6-v0"
+  wrapper: "FlatObsWrapper"
+
+# Agent base configuration
+agent:
+  type: "rnd"
+  buffer_capacity: 20000
+  batch_size: 32
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_final: 0.1
+  epsilon_decay: 50000
+  dqn_hidden_size: 64
+  dqn_lr: 0.001
+  dqn_target_update_freq: 500
+  
+  # RND-specific parameters
+  rnd_type: "on_sample"
+  rnd_hidden_size: 64
+  rnd_output_size: 8
+  rnd_lr: 0.001
+  rnd_update_freq: 1
+  rnd_reward_weight: 0.01
+
+# Training configuration
+train:
+  num_frames: ${num_frames}
+  vmap_save_every_n: 30000
+  minibatch_window: 250 
+  minibatch_save_every_n: 50  
+  eval_interval: 10
+  saved_decimals: 5
+
+# For sweep identification
+sweep:
+  run_id: null
+  phase: "rnd_on_sample"
+
+# Search space definition
+search_space:
+  seed: ${seed}
+  hyperparameters:
+    # DQN hyperparameters
+    agent.buffer_capacity:
+      type: uniform_int
+      lower: 10000
+      upper: 100000
+      log: false
+    agent.batch_size:
+      type: categorical
+      choices: [32, 64, 128]
+    agent.gamma:
+      type: uniform_float
+      lower: 0.95
+      upper: 0.999
+      log: false
+    agent.epsilon_final:
+      type: uniform_float
+      lower: 0.01
+      upper: 0.3
+      log: false
+    agent.epsilon_decay:
+      type: uniform_int
+      lower: 20000
+      upper: 150000  # Reduced for RND (faster exploration expected)
+      log: false
+    agent.dqn_target_update_freq:
+      type: uniform_int
+      lower: 100
+      upper: 1000
+      log: false
+    agent.dqn_lr:
+      type: uniform_float
+      lower: 1e-4
+      upper: 1e-3
+      log: true
+    
+    # RND-specific hyperparameters
+    agent.rnd_lr:
+      type: uniform_float
+      lower: 1e-4
+      upper: 5e-3
+      log: true
+    agent.rnd_update_freq:
+      type: uniform_int
+      lower: 100
+      upper: 1000
+      log: false
+    agent.rnd_reward_weight:
+      type: uniform_float
+      lower: 1e-3
+      upper: 1
+      log: true  # Log scale for reward weighting
