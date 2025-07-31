@@ -142,3 +142,7 @@ tmp*
 # project specific
 MiniGrid*
 results/
+
+# personal
+my_requirements.txt
+requirements.txt

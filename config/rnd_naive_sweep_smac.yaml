@@ -90,7 +90,7 @@ search_space:
       log: false
     agent.batch_size:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [64, 128, 256]
     agent.gamma:
       type: uniform_float
       lower: 0.95
@@ -103,8 +103,8 @@ search_space:
       log: false
     agent.epsilon_decay:
       type: uniform_int
-      lower: 20000
-      upper: 150000
+      lower: 10000
+      upper: 100000
       log: false
     agent.dqn_hidden_size:
       type: categorical
