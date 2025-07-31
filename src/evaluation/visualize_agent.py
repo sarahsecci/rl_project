@@ -4,12 +4,12 @@ Visualize a trained DQN agent in MiniGrid environment.
 
 import os
 
-import dqn
 import gymnasium as gym
 import hydra
 import matplotlib
-import rnd_dqn
 import torch
+from agent.dqn import DQNAgent
+from agent.rnd_dqn import RNDDQNAgent
 from minigrid.wrappers import FlatObsWrapper
 from omegaconf import DictConfig
 
@@ -18,10 +18,13 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 
 
-def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
+def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
     env_name = cfg.env.name
     file_path = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(file_path, "../../results/models/", cfg.run_name + ".pth")
+    model_path = os.path.join(
+        file_path,
+        "../../results/runs/MiniGrid-DoorKey-6x6-v0_rnd_naive_seed_1_time_31-07-25_09-24-30/model.pth",
+    )
 
     # Build environment and use RGB Wrapper
     env = gym.make(env_name, render_mode="rgb_array")
@@ -40,10 +43,9 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
             epsilon_decay=cfg.agent.epsilon_decay,
             dqn_target_update_freq=cfg.agent.dqn_target_update_freq,
             dqn_hidden_size=cfg.agent.dqn_hidden_size,
-            decimals=cfg.train.saved_decimals,
             seed=cfg.seed,
         )
-        agent = dqn.DQNAgent(env, **agent_kwargs)
+        agent = DQNAgent(env, **agent_kwargs)
     elif cfg.agent.type == "rnd":
         agent_kwargs = dict(
             buffer_capacity=cfg.agent.buffer_capacity,
@@ -55,7 +57,6 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
             epsilon_decay=cfg.agent.epsilon_decay,
             dqn_target_update_freq=cfg.agent.dqn_target_update_freq,
             dqn_hidden_size=cfg.agent.dqn_hidden_size,
-            decimals=cfg.train.saved_decimals,
             rnd_type=cfg.agent.rnd_type,
             rnd_hidden_size=cfg.agent.rnd_hidden_size,
             rnd_output_size=cfg.agent.rnd_output_size,
@@ -64,7 +65,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
             rnd_reward_weight=cfg.agent.rnd_reward_weight,
             seed=cfg.seed,
         )
-        agent = rnd_dqn.RNDDQNAgent(env, **agent_kwargs)
+        agent = RNDDQNAgent(env, **agent_kwargs)
     else:
         raise ValueError(f"Unknown agent type: {cfg.agent.type}")
 
@@ -75,7 +76,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
 
     # Run n episodes
     for ep in range(num_episodes):
-        obs, _ = env.reset()
+        obs, _ = env.reset(seed=2)
         done = False
         truncated = False
         step = 0
@@ -85,7 +86,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
         while not (done or truncated) and step < max_steps:
             frame = env.render()  # Get RGB array
             frames.append(frame)
-            action = agent.predict_action(obs, evaluate=True)
+            action = agent._predict_action(obs, evaluate=True)
             obs, reward, done, truncated, _ = env.step(action)
             ep_reward += reward
             step += 1
@@ -97,20 +98,22 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=100):
         plt.axis("off")
         ims = [[plt.imshow(f, animated=True)] for f in frames]
         ani = animation.ArtistAnimation(
-            fig, ims, interval=100, blit=True, repeat_delay=1000
+            fig, ims, interval=300, blit=True, repeat_delay=1000
         )
-        ani_path = os.path.join(file_path, f"../../results/gif/agent_run_{ep + 1}.gif")
+        ani_path = os.path.join(
+            file_path, f"../../results/runs/test/trained_agent_{ep + 1}.gif"
+        )
         ani.save(ani_path, writer="pillow")
 
 
 # change config name
 @hydra.main(
-    config_path="../../results/config/",
-    config_name="MiniGrid-Empty-6x6-v0_dqn_seed0_rnd10058",
+    config_path="../../results/runs/MiniGrid-DoorKey-6x6-v0_rnd_naive_seed_1_time_31-07-25_09-24-30",
+    config_name="config.yaml",
     version_base="1.1",
 )
 def main(cfg: DictConfig):
-    visualize_agent(cfg, num_episodes=3)
+    visualize_agent(cfg, num_episodes=1)
 
 
 if __name__ == "__main__":

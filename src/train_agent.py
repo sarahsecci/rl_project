@@ -132,14 +132,12 @@ def set_results_dir(cfg: DictConfig) -> str:
         else:
             run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{cfg.seed}/{cfg.sweep.run_id}"
     else:
-        run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+        if cfg.agent.type == "dqn":
+            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+        else:
+            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{cfg.seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
 
     run_path = os.path.join(file_path, "../results", run_folder)
-
-    # Check if sweep run_id folder exists
-    # if hasattr(cfg, 'sweep') and cfg.sweep.run_id is not None and os.path.exists(run_path):
-    #     raise FileExistsError(f"Results directory for sweep run_id '{cfg.sweep.run_id}' already exists: {run_path}")
-
     os.makedirs(run_path, exist_ok=True)
 
     return run_path
@@ -204,7 +202,7 @@ def train_agent(cfg: DictConfig) -> str:
     return run_path
 
 
-@hydra.main(config_path="../config/", config_name="dqn", version_base="1.2")
+@hydra.main(config_path="../config/", config_name="rnd_naive_opt", version_base="1.2")
 def main(cfg: DictConfig):
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":

@@ -28,7 +28,7 @@ def parse_performance_metric(results_dir: str) -> float:
         Performance metric for optimization (higher is better)
     """
     # Constants
-    MAX_EPISODE_STEPS = 360  # Maximum steps before truncation in MiniGrid
+    MAX_EPISODE_STEPS = 640  # Maximum steps before truncation in MiniGrid
 
     try:
         # Find episode rewards CSV
@@ -78,7 +78,7 @@ def parse_performance_metric(results_dir: str) -> float:
         performance = avg_episode_length / MAX_EPISODE_STEPS
 
         print(f"Successful episodes: {len(successful_episodes)}")
-        print(f"Average episode length (successful): {avg_episode_length:.2f}")
+        print(f"Average episode length: {avg_episode_length:.2f}")
         print(f"Performance metric (normalized length): {performance:.4f}")
 
         return float(performance)
