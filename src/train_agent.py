@@ -204,7 +204,9 @@ def train_agent(cfg: DictConfig) -> str:
     return run_path
 
 
-@hydra.main(config_path="../config/", config_name="dqn", version_base="1.2")
+@hydra.main(
+    config_path="../config/", config_name="rnd_on_sample_opt", version_base="1.2"
+)
 def main(cfg: DictConfig):
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":

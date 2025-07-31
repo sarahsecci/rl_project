@@ -1,0 +1,32 @@
+# @package _global_
+env:
+  name: "MiniGrid-DoorKey-6x6-v0" # Environment name
+  wrapper: "FlatObsWrapper" # FlatObsWrapper or RGBImgObsWrapper
+
+seed: 0   # Random seed for reproducibility
+
+agent:
+  type:                   "rnd"   # Possebile values: "dqn", "rnd"
+  buffer_capacity:        11678   # Max replay buffer size
+  batch_size:             128      # Minibatch size
+  gamma:                  0.963    # Discount factor
+  epsilon_start:          1.0     # Initial value of epsilon
+  epsilon_final:          0.0116    # Final value of epsilon
+  epsilon_decay:          21702    # Decay steps for epsilon
+  dqn_hidden_size:        64      # Hidden size for DQN networks
+  dqn_lr:                 0.000110   # Maps to DQNAgent’s lr
+  dqn_target_update_freq: 309    # Update target network every this many steps
+  rnd_type:               "on_sample" # Possible values: "naive", "on_sample"
+  rnd_hidden_size:        32      # Hidden size for RND networks
+  rnd_output_size:        16      # Output size for RND networks
+  rnd_lr:                 0.000217   # Learning rate for RND networks
+  rnd_update_freq:        331    # Update RND networks every this many steps   
+  rnd_reward_weight:      0.00739     # Weight for RND reward in total reward
+  
+train:
+  num_frames:             100000  # Total env steps
+  vmap_save_every_n:      10000   # Save visitation map every nth step to reduce file size.
+  minibatch_window:       250     # Rolling window size for averaging minibatch values.
+  minibatch_save_every_n: 50      # Save minibatch values every nth step to reduce file size.
+  eval_interval:          10      # Print average episode reward every eval_interval steps in terminal.
+  saved_decimals:         5       # number of decimals saved in the csv

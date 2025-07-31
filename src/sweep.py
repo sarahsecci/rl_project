@@ -28,7 +28,7 @@ def parse_performance_metric(results_dir: str) -> float:
         Performance metric for optimization (higher is better)
     """
     # Constants
-    MAX_EPISODE_STEPS = 360  # Maximum steps before truncation in MiniGrid
+    MAX_EPISODE_STEPS = 640  # Maximum steps before truncation in MiniGrid
 
     try:
         # Find episode rewards CSV
@@ -89,7 +89,7 @@ def parse_performance_metric(results_dir: str) -> float:
 
 
 @hydra.main(
-    config_path="../config/", config_name="dqn_sweep_smac", version_base="1.2"
+    config_path="../config/", config_name="rnd_on_sample_sweep_smac", version_base="1.2"
 )  # Changed config name
 def sweep_main(cfg: DictConfig) -> float:
     """

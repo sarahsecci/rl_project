@@ -12,10 +12,10 @@ n_trials: 100
 
 # Hydra output & sweeper settings
 hydra:
-  run:
-    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
-  sweep:
-    dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
+  # run:
+  #   dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
+  # sweep:
+  #   dir: ../results/sweeps/${env.name}_${agent.type}_${agent.rnd_type}_seed_${seed}
   sweeper:
     n_trials: ${n_trials}
     budget_variable: train.num_frames # fidelity variable
@@ -31,8 +31,8 @@ hydra:
         scenario:
           n_trials: ${hydra.sweeper.n_trials}
           seed: ${seed}
-          min_budget: 35000      # minimum num_frames for first round
-          max_budget: 105000     # maximum num_frames for final round
+          min_budget: 20000      # minimum num_frames for first round
+          max_budget: 60000     # maximum num_frames for final round
           deterministic: true
           n_workers: 1
           output_directory: ${hydra.sweep.dir}
@@ -40,7 +40,7 @@ hydra:
   
 # Environment configuration
 env:
-  name: "MiniGrid-DoorKey-6x6-v0"
+  name: "MiniGrid-DoorKey-8x8-v0"
   wrapper: "FlatObsWrapper"
 
 # Agent base configuration
@@ -90,7 +90,7 @@ search_space:
       log: false
     agent.batch_size:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [64, 128, 256]
     agent.gamma:
       type: uniform_float
       lower: 0.95
@@ -103,8 +103,8 @@ search_space:
       log: false
     agent.epsilon_decay:
       type: uniform_int
-      lower: 20000
-      upper: 150000
+      lower: 10000
+      upper: 100000
       log: false
     agent.dqn_hidden_size:
       type: categorical
