@@ -23,7 +23,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
     file_path = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(
         file_path,
-        "../../results/runs/MiniGrid-DoorKey-6x6-v0_rnd_naive_seed_1_time_31-07-25_09-24-30/model.pth",
+        "../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52/model.pth",
     )
 
     # Build environment and use RGB Wrapper
@@ -76,7 +76,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
 
     # Run n episodes
     for ep in range(num_episodes):
-        obs, _ = env.reset(seed=2)
+        obs, _ = env.reset(seed=ep)
         done = False
         truncated = False
         step = 0
@@ -91,7 +91,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
             ep_reward += reward
             step += 1
 
-        print(f"Episode {ep + 1}: Reward={ep_reward}, Steps={step}")
+        print(f"Episode {ep}: Reward={ep_reward}, Steps={step}")
 
         # Display animation using matplotlib
         fig = plt.figure()
@@ -101,19 +101,20 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
             fig, ims, interval=300, blit=True, repeat_delay=1000
         )
         ani_path = os.path.join(
-            file_path, f"../../results/runs/test/trained_agent_{ep + 1}.gif"
+            file_path,
+            f"../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52/trained_agent_{ep}.gif",
         )
         ani.save(ani_path, writer="pillow")
 
 
 # change config name
 @hydra.main(
-    config_path="../../results/runs/MiniGrid-DoorKey-6x6-v0_rnd_naive_seed_1_time_31-07-25_09-24-30",
+    config_path="../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52",
     config_name="config.yaml",
     version_base="1.1",
 )
 def main(cfg: DictConfig):
-    visualize_agent(cfg, num_episodes=1)
+    visualize_agent(cfg, num_episodes=10)
 
 
 if __name__ == "__main__":
