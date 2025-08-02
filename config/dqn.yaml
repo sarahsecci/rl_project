@@ -24,7 +24,7 @@ agent:
   rnd_reward_weight:      0.5     # Weight for RND reward in total reward
   
 train:
-  num_frames:             250000  # Total env steps
+  num_frames:             10000  # Total env steps
   vmap_save_every_n:      5000   # Save visitation map every nth step to reduce file size.
   minibatch_window:       100     # Rolling window size for averaging minibatch values.
   minibatch_save_every_n: 20      # Save minibatch values every nth step to reduce file size.

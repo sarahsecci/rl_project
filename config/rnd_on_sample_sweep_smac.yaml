@@ -7,8 +7,8 @@ defaults:
   - override hydra/sweeper: HyperSMAC
 
 # Global flags
-seed: 0
-n_trials: 100
+seed: 2
+n_trials: 50
 
 # Hydra output & sweeper settings
 hydra:
@@ -31,8 +31,8 @@ hydra:
         scenario:
           n_trials: ${hydra.sweeper.n_trials}
           seed: ${seed}
-          min_budget: 35000      # minimum num_frames for first round
-          max_budget: 105000     # maximum num_frames for final round
+          min_budget: 20000      # minimum num_frames for first round
+          max_budget: 60000     # maximum num_frames for final round
           deterministic: true
           n_workers: 1
           output_directory: ${hydra.sweep.dir}
@@ -52,13 +52,13 @@ agent:
   epsilon_start: 1.0
   epsilon_final: 0.1
   epsilon_decay: 50000
-  dqn_hidden_size: 64
+  dqn_hidden_size: 32
   dqn_lr: 0.001
   dqn_target_update_freq: 500
   
   # RND-specific parameters
   rnd_type: "on_sample"
-  rnd_hidden_size: 64
+  rnd_hidden_size: 32
   rnd_output_size: 8
   rnd_lr: 0.001
   rnd_update_freq: 1
@@ -67,7 +67,7 @@ agent:
 # Training configuration
 train:
   num_frames: 50000
-  vmap_save_every_n: 50000
+  vmap_save_every_n: 30000
   minibatch_window: 250 
   minibatch_save_every_n: 50  
   eval_interval: 10
@@ -90,7 +90,7 @@ search_space:
       log: false
     agent.batch_size:
       type: categorical
-      choices: [32, 64, 128]
+      choices: [64, 128, 256]
     agent.gamma:
       type: uniform_float
       lower: 0.95
@@ -103,8 +103,8 @@ search_space:
       log: false
     agent.epsilon_decay:
       type: uniform_int
-      lower: 20000
-      upper: 150000
+      lower: 10000
+      upper: 100000
       log: false
     agent.dqn_hidden_size:
       type: categorical
@@ -126,7 +126,7 @@ search_space:
       choices: [32, 64]
     agent.rnd_output_size:
       type: categorical
-      choices: [8, 16, 32]
+      choices: [8, 16]
     agent.rnd_lr:
       type: uniform_float
       lower: 1e-4
