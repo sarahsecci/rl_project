@@ -28,7 +28,7 @@ def parse_performance_metric(results_dir: str) -> float:
         Performance metric for optimization (higher is better)
     """
     # Constants
-    MAX_EPISODE_STEPS = 640  # Maximum steps before truncation in MiniGrid
+    MAX_EPISODE_STEPS = 360  # Maximum steps before truncation in MiniGrid
 
     try:
         # Find episode rewards CSV

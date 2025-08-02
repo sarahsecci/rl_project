@@ -7,8 +7,8 @@ defaults:
   - override hydra/sweeper: HyperSMAC
 
 # Global flags
-seed: 0
-n_trials: 100
+seed: 1
+n_trials: 50
 
 # Hydra output & sweeper settings
 hydra:
@@ -40,7 +40,7 @@ hydra:
   
 # Environment configuration
 env:
-  name: "MiniGrid-DoorKey-8x8-v0"
+  name: "MiniGrid-DoorKey-6x6-v0"
   wrapper: "FlatObsWrapper"
 
 # Agent base configuration
@@ -67,7 +67,7 @@ agent:
 # Training configuration
 train:
   num_frames: 50000
-  vmap_save_every_n: 50000
+  vmap_save_every_n: 20000
   minibatch_window: 250 
   minibatch_save_every_n: 50  
   eval_interval: 10
@@ -126,7 +126,7 @@ search_space:
       choices: [32, 64]
     agent.rnd_output_size:
       type: categorical
-      choices: [8, 16, 32]
+      choices: [8, 16]
     agent.rnd_lr:
       type: uniform_float
       lower: 1e-4
