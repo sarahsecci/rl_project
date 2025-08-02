@@ -141,11 +141,12 @@ tmp*
 
 # project specific
 MiniGrid*
-results/
+results/runs 
+results/sweeps
 
 # personal
 my_requirements.txt
 requirements.txt
 
-# multirun
-multirun/ 
+# multirun (Clara)
+multirun/

@@ -7,8 +7,8 @@ defaults:
   - override hydra/sweeper: HyperSMAC
 
 # Global flags
-seed: 0
-n_trials: 100
+seed: 2
+n_trials: 50
 
 # Hydra output & sweeper settings
 hydra:
@@ -31,8 +31,8 @@ hydra:
         scenario:
           n_trials: ${hydra.sweeper.n_trials}
           seed: ${seed}
-          min_budget: 35000      # minimum num_frames for first round
-          max_budget: 105000     # maximum num_frames for final round
+          min_budget: 20000      # minimum num_frames for first round
+          max_budget: 60000      # maximum num_frames for final round
           deterministic: true
           n_workers: 1
           output_directory: ${hydra.sweep.dir}
@@ -59,7 +59,7 @@ agent:
 # Training configuration
 train:
   num_frames: 50000
-  vmap_save_every_n: 50000
+  vmap_save_every_n: 20000
   minibatch_window: 250 
   minibatch_save_every_n: 50  
   eval_interval: 10
