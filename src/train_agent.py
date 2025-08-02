@@ -131,6 +131,9 @@ def set_results_dir(cfg: DictConfig, seed: int = None) -> str:
 
     if seed is None:
         seed = cfg.seed
+        results_dir = "runs"
+    else:
+        results_dir = "final_runs"
 
     # Create unique folder name
     if hasattr(cfg, "sweep") and cfg.sweep.run_id is not None:
@@ -142,9 +145,9 @@ def set_results_dir(cfg: DictConfig, seed: int = None) -> str:
             run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{seed}/{cfg.sweep.run_id}"
     else:
         if cfg.agent.type == "dqn":
-            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+            run_folder = f"{results_dir}/{cfg.env.name}_{cfg.agent.type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
         else:
-            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+            run_folder = f"{results_dir}/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
 
     run_path = os.path.join(file_path, "../results", run_folder)
     os.makedirs(run_path, exist_ok=True)
@@ -287,7 +290,7 @@ def parse_performance_metric(results_dir: str) -> float:
         return -float("inf")
 
 
-@hydra.main(config_path="../config/", config_name="rnd_naive_opt", version_base="1.2")
+@hydra.main(config_path="../config/", config_name="dqn_opt", version_base="1.2")
 def main(cfg: DictConfig):
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":
