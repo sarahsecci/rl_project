@@ -144,9 +144,13 @@ MiniGrid*
 results/runs 
 results/sweeps
 
-# personal
+# personal (Clara)
 my_requirements.txt
 requirements.txt
+.DS_Store
+results/.DS_Store
 
 # multirun (Clara)
 multirun/
+
+results/.DS_Store

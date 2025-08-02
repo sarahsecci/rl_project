@@ -1,0 +1,85 @@
+DQN
+Configuration 0:
+seed 0: Successful episodes: 2006
+        Average episode length: 18.02
+        Performance metric (normalized length): 0.0500
+        Run dqn completed with performance: 0.0500
+seed 1: Successful episodes: 2179
+        Average episode length: 16.29
+        Performance metric (normalized length): 0.0453
+        Run dqn completed with performance: 0.0453
+seed 2: Successful episodes: 1110
+        Average episode length: 19.06
+        Performance metric (normalized length): 0.0529
+        Run dqn completed with performance: 0.0529
+
+Configuration 1:
+seed 0: Successful episodes: 0
+        Average episode length: 360.00
+        Performance metric (normalized length): 1.0000
+        Run dqn completed with performance: 1.0000
+seed 1: Successful episodes: 2150
+        Average episode length: 14.15
+        Performance metric (normalized length): 0.0393
+        Run dqn completed with performance: 0.0393
+seed 2: Successful episodes: 29
+        Average episode length: 347.52
+        Performance metric (normalized length): 0.9653
+        Run dqn completed with performance: 0.9653
+
+Configuration 2:
+seed 0: Successful episodes: 1881
+        Average episode length: 18.59
+        Performance metric (normalized length): 0.0516
+        Run dqn completed with performance: 0.0516
+seed 1: Successful episodes: 2004
+        Average episode length: 17.65
+        Performance metric (normalized length): 0.0490
+        Run dqn completed with performance: 0.0490
+seed 2: Successful episodes: 1180
+        Average episode length: 20.01
+        Performance metric (normalized length): 0.0556
+        Run dqn completed with performance: 0.0556
+
+ON SAMPLE RND-DQN:
+Configuration 0:
+seed 0: Successful episodes: 2320
+        Average episode length: 15.98
+        Performance metric (normalized length): 0.0444
+        Run rnd_on_sample completed with performance: 0.0444
+seed 1: Successful episodes: 2633
+        Average episode length: 15.08
+        Performance metric (normalized length): 0.0419
+        Run rnd_on_sample completed with performance: 0.0419
+seed 2: Successful episodes: 1622
+        Average episode length: 16.60
+        Performance metric (normalized length): 0.0461
+        Run rnd_on_sample completed with performance: 0.0461
+
+Configuration 1:
+seed 0: Successful episodes: 2616
+        Average episode length: 15.38
+        Performance metric (normalized length): 0.0427
+        Run rnd_on_sample completed with performance: 0.0427
+seed 1: Successful episodes: 2712
+        Average episode length: 14.57
+        Performance metric (normalized length): 0.0405
+        Run rnd_on_sample completed with performance: 0.0405
+seed 2: Successful episodes: 1427
+        Average episode length: 16.90
+        Performance metric (normalized length): 0.0469
+        Run rnd_on_sample completed with performance: 0.0469
+
+Configuration 2:
+seed 0: Successful episodes: 484
+        Average episode length: 21.74
+        Performance metric (normalized length): 0.0604
+        Run rnd_on_sample completed with performance: 0.0604
+seed 1: Successful episodes: 1634
+        Average episode length: 20.82
+        Performance metric (normalized length): 0.0578
+        Run rnd_on_sample completed with performance: 0.0578
+seed 2: Successful episodes: 761
+        Average episode length: 22.77
+        Performance metric (normalized length): 0.0632
+        Run rnd_on_sample completed with performance: 0.0632    
