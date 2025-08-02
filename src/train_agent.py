@@ -50,7 +50,7 @@ def build_env(env_name: str, wrapper: str) -> gym.Env:
     return env
 
 
-def setup_agent(cfg: DictConfig, env: gym.Env) -> DQNAgent:
+def setup_agent(cfg: DictConfig, env: gym.Env, seed: int = None) -> DQNAgent:
     """
     Set up the DQN agent based on the configuration.
 
@@ -65,6 +65,9 @@ def setup_agent(cfg: DictConfig, env: gym.Env) -> DQNAgent:
     agent = None
     agent_kwargs = None
 
+    if seed is None:
+        seed = cfg.seed
+
     if cfg.agent.type == "dqn":
         agent_kwargs = dict(
             buffer_capacity=cfg.agent.buffer_capacity,
@@ -76,7 +79,7 @@ def setup_agent(cfg: DictConfig, env: gym.Env) -> DQNAgent:
             epsilon_decay=cfg.agent.epsilon_decay,
             dqn_target_update_freq=cfg.agent.dqn_target_update_freq,
             dqn_hidden_size=cfg.agent.dqn_hidden_size,
-            seed=cfg.seed,
+            seed=seed,
         )
         agent = DQNAgent(env, **agent_kwargs)
     elif cfg.agent.type == "rnd":
@@ -96,7 +99,7 @@ def setup_agent(cfg: DictConfig, env: gym.Env) -> DQNAgent:
             rnd_lr=cfg.agent.rnd_lr,
             rnd_update_freq=cfg.agent.rnd_update_freq,
             rnd_reward_weight=cfg.agent.rnd_reward_weight,
-            seed=cfg.seed,
+            seed=seed,
         )
         agent = RNDDQNAgent(env, **agent_kwargs)
     else:
@@ -114,7 +117,7 @@ def set_visitation_map(env_name) -> np.ndarray:
     return visitation_map
 
 
-def set_results_dir(cfg: DictConfig) -> str:
+def set_results_dir(cfg: DictConfig, seed: int = None) -> str:
     """
     Set the results directory based on the configuration.
 
@@ -126,17 +129,22 @@ def set_results_dir(cfg: DictConfig) -> str:
     file_path = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(os.path.join(file_path, "../results"), exist_ok=True)
 
+    if seed is None:
+        seed = cfg.seed
+
     # Create unique folder name
     if hasattr(cfg, "sweep") and cfg.sweep.run_id is not None:
         if cfg.agent.type == "dqn":
-            run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}/{cfg.sweep.run_id}"
+            run_folder = (
+                f"sweeps/{cfg.env.name}_{cfg.agent.type}_seed_{seed}/{cfg.sweep.run_id}"
+            )
         else:
-            run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{cfg.seed}/{cfg.sweep.run_id}"
+            run_folder = f"sweeps/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{seed}/{cfg.sweep.run_id}"
     else:
         if cfg.agent.type == "dqn":
-            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{cfg.seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
         else:
-            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{cfg.seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
+            run_folder = f"runs/{cfg.env.name}_{cfg.agent.type}_{cfg.agent.rnd_type}_seed_{seed}_time_{dt.now().strftime('%d-%m-%y_%H-%M-%S')}"
 
     run_path = os.path.join(file_path, "../results", run_folder)
     os.makedirs(run_path, exist_ok=True)
@@ -164,7 +172,7 @@ def save_results(run_path: str, cfg: DictConfig, agent: DQNAgent, runtime: time)
     print(f"Results saved to: {run_path}")
 
 
-def train_agent(cfg: DictConfig) -> str:
+def train_agent(cfg: DictConfig, seed: int = None) -> str:
     """
     Train an agent and return the results directory path.
 
@@ -173,10 +181,10 @@ def train_agent(cfg: DictConfig) -> str:
     str
         Path to the results directory
     """
-    run_path = set_results_dir(cfg)
+    run_path = set_results_dir(cfg, seed)
 
     env = build_env(cfg.env.name, cfg.env.wrapper)
-    agent = setup_agent(cfg, env)
+    agent = setup_agent(cfg, env, seed)
 
     visitation_map = set_visitation_map(cfg.env.name)
 
@@ -279,25 +287,34 @@ def parse_performance_metric(results_dir: str) -> float:
         return -float("inf")
 
 
-@hydra.main(config_path="../config/", config_name="dqn_opt", version_base="1.2")
+@hydra.main(config_path="../config/", config_name="rnd_naive_opt", version_base="1.2")
 def main(cfg: DictConfig):
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":
         set_gpu()
     print("torch device: ", torch.get_default_device())
 
-    # Train agent
-    results_dir = train_agent(cfg)
+    # Train agent on single seed
+    # results_dir = train_agent(cfg)
 
-    performance = parse_performance_metric(results_dir)
+    # performance = parse_performance_metric(results_dir)
 
-    # Log trial result
-    if cfg.agent.type == "dqn":
-        print(f"Run {cfg.agent.type} completed with performance: {performance:.4f}")
-    else:
-        print(
-            f"Run {cfg.agent.type}_{cfg.agent.rnd_type} completed with performance: {performance:.4f}"
-        )
+    # # Log trial result
+    # if cfg.agent.type == "dqn":
+    #     print(f"Run {cfg.agent.type} completed with performance: {performance:.4f}")
+    # else:
+    #     print(
+    #         f"Run {cfg.agent.type}_{cfg.agent.rnd_type} completed with performance: {performance:.4f}"
+    #     )
+
+    # Uncomment this to train over multiple seeds
+    max_seed = 20  # Set max number of seeds to train over
+
+    for seed in range(max_seed + 1):
+        print(f"Training with seed {seed}...")
+        results_dir = train_agent(cfg, seed)
+        performance = parse_performance_metric(results_dir)
+        print(f"Run for seed {seed} completed with performance: {performance:.4f}")
 
 
 if __name__ == "__main__":
