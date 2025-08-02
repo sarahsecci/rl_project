@@ -141,4 +141,5 @@ tmp*
 
 # project specific
 MiniGrid*
-results/
+results/runs/
+results/sweeps/
