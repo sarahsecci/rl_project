@@ -140,7 +140,6 @@ tmp*
 .ruff_cache/
 
 # project specific
-MiniGrid*
 results/runs 
 results/sweeps
 

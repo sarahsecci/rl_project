@@ -18,9 +18,12 @@ agent:
   dqn_target_update_freq: 500
 
 train:
-  num_frames: 200000  # Shorter for sweeps
-  eval_interval: 100
-  saved_decimals: 5
+  num_frames: 60000
+  vmap_save_every_n: 20000  
+  minibatch_window: 250   
+  minibatch_save_every_n: 50    
+  eval_interval: 10    
+  saved_decimals: 5     
 
 # For sweep identification
 sweep:
