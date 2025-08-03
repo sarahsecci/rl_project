@@ -142,6 +142,7 @@ tmp*
 # project specific
 results/runs 
 results/sweeps
+results/sweep_results
 
 # personal (Clara)
 my_requirements.txt
