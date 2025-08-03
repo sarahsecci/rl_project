@@ -1,3 +1,7 @@
+"""
+Plot final runs of DQN, RND-naive, and RND-on-sample algorithms
+"""
+
 import os
 import re
 from collections import defaultdict
@@ -356,10 +360,16 @@ def list_available_combinations(results_dir: str = None):
 
 
 if __name__ == "__main__":
-    # Example usage:
+    # Determine which environment and agent to plot
+    env_name = "MiniGrid-DoorKey-6x6-v0"
+    algorithm = "dqn"
+
+    # Get directory with final runs
+    file_path = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(file_path, "../../results/final_runs")
 
     # Option 1: Generate plots for a specific algorithm and environment
-    generate_plots_for_algorithm_env("rnd_naive", "MiniGrid-DoorKey-6x6-v0")
+    # generate_plots_for_algorithm_env("rnd_naive", "MiniGrid-DoorKey-6x6-v0")
 
     # Option 2: Generate plots for all available combinations
     # generate_all_plots()
