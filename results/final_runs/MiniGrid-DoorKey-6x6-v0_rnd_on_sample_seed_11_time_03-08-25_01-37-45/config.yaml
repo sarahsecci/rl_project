@@ -1,0 +1,28 @@
+env:
+  name: MiniGrid-DoorKey-6x6-v0
+  wrapper: FlatObsWrapper
+seed: 0
+agent:
+  type: rnd
+  buffer_capacity: 72197
+  batch_size: 64
+  gamma: 0.95
+  epsilon_start: 1.0
+  epsilon_final: 0.0669
+  epsilon_decay: 11514
+  dqn_hidden_size: 64
+  dqn_lr: 0.000185
+  dqn_target_update_freq: 302
+  rnd_type: on_sample
+  rnd_hidden_size: 32
+  rnd_output_size: 16
+  rnd_lr: 0.000975
+  rnd_update_freq: 705
+  rnd_reward_weight: 0.141
+train:
+  num_frames: 60000
+  vmap_save_every_n: 5000
+  minibatch_window: 250
+  minibatch_save_every_n: 50
+  eval_interval: 10
+  saved_decimals: 5

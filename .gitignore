@@ -140,9 +140,9 @@ tmp*
 .ruff_cache/
 
 # project specific
-MiniGrid*
 results/runs 
 results/sweeps
+results/sweep_results
 
 # personal (Clara)
 my_requirements.txt
