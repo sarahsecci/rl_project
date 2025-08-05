@@ -154,3 +154,8 @@ results/.DS_Store
 multirun/
 
 results/.DS_Store
+
+# visitation maps
+plots/visitation_maps/dqn
+plots/visitation_maps/rnd_on_sample
+plots/visitation_maps/rnd_naive
