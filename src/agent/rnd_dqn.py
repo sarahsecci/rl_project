@@ -423,7 +423,7 @@ class RNDDQNAgent(DQNAgent):
                 intr_reward,
             )
             state = next_state
-            ep_reward += extr_reward + intr_reward
+            ep_reward += extr_reward
 
             # Update agent if buffer is large enough to sample minibatch
             if len(self.buffer) >= self.batch_size:
