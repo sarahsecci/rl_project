@@ -6,7 +6,7 @@ env:
 seed: 0 # Random seed for reproducibility
 
 agent:
-  type:                   "dqn"     # Possebile values: "dqn", "rnd"
+  type:                   "dqn"     # Possible values: "dqn", "rnd"
   buffer_capacity:        76350     # Max replay buffer size
   batch_size:             128       # Minibatch size
   gamma:                  0.953     # Discount factor
