@@ -137,8 +137,12 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
     rows = math.ceil(n / cols)
 
     fig, axes = plt.subplots(
-        rows, cols, gridspec_kw={"width_ratios": [1, 1, 1, 1, 0.3]}, squeeze=False
-    )  # ,figsize=(cols * 4, rows * 4)
+        rows,
+        cols,
+        gridspec_kw={"width_ratios": [1, 1, 1, 1, 0.4]},
+        squeeze=False,
+        figsize=(15, 6),
+    )  #
 
     for idx, (df, ax) in enumerate(zip(dfs, axes.flat)):
         mask = df == 0
@@ -151,7 +155,7 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
             mask=mask,
             square=True,
             vmin=vmin,
-            vmax=15000,
+            vmax=10000,
             cbar=bar,
             cbar_kws={"shrink": 0.2, "aspect": 10},
         )
@@ -165,12 +169,12 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
     # Use the last heatmap to create a mappable object
 
     # Create dummy heatmap to extract color scale
-    cbar_ax = fig.add_axes([0.92, 0.35, 0.02, 0.3])  # [left, bottom, width, height]
+    cbar_ax = fig.add_axes([0.9, 0.29, 0.02, 0.4])  # [left, bottom, width, height]
     # sns.heatmap(dfs[0], cmap=cmap, cbar=True,
     #             square=True, vmin=vmin, vmax=15000)
     # plt.gcf().text(-0.02,0.45, "Y-axis", ha="center", va="center", rotation=90, fontsize=12)
     # Create a dummy mappable for the colorbar
-    norm = plt.Normalize(vmin=vmin, vmax=15000)
+    norm = plt.Normalize(vmin=vmin, vmax=10000)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
 
@@ -193,9 +197,21 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.suptitle(
-        f"State visitaion maps for {agent_name}, seed {seed}", fontsize=20, y=0.8
+        f"State visitaion maps for {agent_name}, seed {seed}", fontsize=20, y=0.9
     )
-    plt.show()
+    # plt.show()
+
+    # Create save directory
+    save_root = os.path.join(
+        file_path,
+        "../../plots/visitation_maps/",
+    )
+    os.makedirs(save_root, exist_ok=True)
+    save_path = os.path.join(save_root, f"{agent}_seed_{seed}_.png")
+
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+    print(f"Plot saved to: {save_path}")
 
 
 if __name__ == "__main__":
@@ -205,5 +221,5 @@ if __name__ == "__main__":
     frames = [5000, 10000, 20000, 40000]
     # plot several state visitation maps of one agent as a grid of subplots
     plot_multiple_heatmaps(
-        agent="rnd_naive", seed=12, frames=frames, max_plots=4, cols=5, cmap="inferno_r"
+        agent="dqn", seed=12, frames=frames, max_plots=4, cols=5, cmap="inferno_r"
     )
