@@ -115,8 +115,14 @@ def plot_sample_efficiency(
             print(f"No valid data found for {agent}")
             continue
 
-        # Store data for this agent
-        all_train_scores[agent.upper()] = aligned_data
+        # Store data for this agent with custom name
+        agent_display_name = {
+            "dqn": "DQN",
+            "rnd_naive": "Naive RND-DQN",
+            "rnd_on_sample": "On-sample RND-DQN",
+        }.get(agent, agent.upper())
+
+        all_train_scores[agent_display_name] = aligned_data
         if common_steps is None:
             common_steps = steps
 
@@ -147,26 +153,27 @@ def plot_sample_efficiency(
         iqm_cis,
         algorithms=list(all_train_scores.keys()),
         xlabel=x_col.title(),
-        ylabel=f"IQM {y_col.title()}",
-        labelsize="large",
-        ticklabelsize="large",
+        ylabel="IQM standard deviation",
+        labelsize="x-large",
+        ticklabelsize="x-large",
         marker="",
         linewidth=2,
+        figsize=(5, 4),  # (8,4) (4,4)
     )
 
     if title:
-        plt.title(title, fontsize="x-large")
+        plt.title(title, fontsize="xx-large")
     else:
         # Auto-generate title
         agent_str = " vs ".join([agent.upper() for agent in agents])
-        plt.title(f"{agent_str} - {env_name}", fontsize="x-large")
+        plt.title(f"{agent_str} - {env_name}", fontsize="xx-large")
 
     plt.legend()
     plt.tight_layout()
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.savefig(save_path, dpi=1000, bbox_inches="tight")
         plt.close()
         print(f"Plot saved to: {save_path}")
     else:
@@ -205,40 +212,40 @@ if __name__ == "__main__":
 
     # Configuration for all plots
     plot_configs = [
-        {
-            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-            "eval_file": "episode_rewards",
-            "y_col": "rewards",
-            "filename": "rewards_over_steps",
-            "title": "Episode Rewards over Steps",
-        },
-        {
-            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-            "eval_file": "minibatch_values",
-            "y_col": "extrinsic",
-            "filename": "extrinsic",
-            "title": "Mean Extrinsic Reward in Sampled Minibatches",
-        },
-        {
-            "agents": ["rnd_naive", "rnd_on_sample"],  # Only RND agents
-            "eval_file": "minibatch_values",
-            "y_col": "intrinsic",
-            "filename": "intrinsic",
-            "title": "Mean Intrinsic Reward in Sampled Minibatches",
-        },
-        {
-            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-            "eval_file": "minibatch_values",
-            "y_col": "loss",
-            "filename": "td_error",
-            "title": "TD Error",
-        },
+        # {
+        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+        #     "eval_file": "episode_rewards",
+        #     "y_col": "rewards",
+        #     "filename": "rewards_over_steps",
+        #     "title": "Episode rewards over steps",
+        # },
+        # {
+        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+        #     "eval_file": "minibatch_values",
+        #     "y_col": "extrinsic",
+        #     "filename": "extrinsic",
+        #     "title": "Mean extrinsic reward in sampled batches",
+        # },
+        # {
+        #     "agents": ["rnd_naive", "rnd_on_sample"],  # Only RND agents
+        #     "eval_file": "minibatch_values",
+        #     "y_col": "intrinsic",
+        #     "filename": "intrinsic",
+        #     "title": "Mean intrinsic reward in sampled batches",
+        # },
+        # {
+        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+        #     "eval_file": "minibatch_values",
+        #     "y_col": "loss",
+        #     "filename": "td_error",
+        #     "title": "TD Error",
+        # },
         {
             "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
             "eval_file": "minibatch_values",
             "y_col": "td_std",
             "filename": "td_std",
-            "title": "TD Standard Deviation",
+            "title": "Standard deviation of TD error",
         },
     ]
 
