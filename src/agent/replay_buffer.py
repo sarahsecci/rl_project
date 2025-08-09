@@ -1,3 +1,10 @@
+"""
+FIFO replay buffer implementation for storing and sampling agent experiences.
+Authors: Auto-ML Classroom, Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
+"""
+
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -14,10 +21,14 @@ class ReplayBuffer(AbstractBuffer):
 
     def __init__(self, capacity: int, intr: bool = False) -> None:
         """
+        Initialize replay buffer with specified capacity.
+
         Parameters
         ----------
         capacity : int
             Maximum number of transitions to store.
+        intr : bool, optional
+            Whether to store intrinsic rewards for RND agents. Default is False.
         """
         super().__init__()
         self.capacity = capacity
@@ -93,12 +104,14 @@ class ReplayBuffer(AbstractBuffer):
 
         Parameters
         ----------
-        batch_size : int
-            Number of transitions to sample.
+        batch_size : int, optional
+            Number of transitions to sample. Default is 32.
 
         Returns
         -------
-        List of transitions as (state, action, reward, next_state, done, info).
+        List[Tuple]
+            List of transitions as (state, action, reward, next_state, done, info).
+            If intrinsic rewards are enabled, includes intrinsic reward as 7th element.
         """
         idxs = np.random.choice(len(self.states), batch_size, replace=False)
 
@@ -121,5 +134,12 @@ class ReplayBuffer(AbstractBuffer):
             return [t[:-1] for t in result]
 
     def __len__(self) -> int:
-        """Current number of stored transitions."""
+        """
+        Get current number of stored transitions.
+
+        Returns
+        -------
+        int
+            Current buffer size.
+        """
         return len(self.states)

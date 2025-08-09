@@ -1,5 +1,8 @@
 """
-Visualize a trained DQN agent in MiniGrid environment.
+Visualization script for trained DQN and RND-DQN agents in MiniGrid environments.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
 """
 
 import os
@@ -18,13 +21,31 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 
 
-def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
+def visualize_agent(
+    cfg: DictConfig,
+    file_path: str,
+    num_seeds: int = 3,
+    start_seed: int = 0,
+    max_steps: int = 360,
+):
+    """
+    Visualize a trained agent's behavior in the environment and save as GIF animations.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Configuration used for training the agent.
+    file_path : str
+        Path to the directory containing the trained model.
+    num_seeds : int
+        Number of episodes to run with different seeds.
+    start_seed : int
+        Starting seed for episode generation.
+    max_steps : int
+        Maximum steps per episode before truncation.
+    """
     env_name = cfg.env.name
-    file_path = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(
-        file_path,
-        "../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52/model.pth",
-    )
+    model_path = os.path.join(file_path, "model.pth")
 
     # Build environment and use RGB Wrapper
     env = gym.make(env_name, render_mode="rgb_array")
@@ -75,8 +96,8 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
     agent.q.eval()
 
     # Run n episodes
-    for ep in range(num_episodes):
-        obs, _ = env.reset(seed=ep)
+    for s in range(num_seeds):
+        obs, _ = env.reset(seed=s + start_seed)
         done = False
         truncated = False
         step = 0
@@ -91,7 +112,7 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
             ep_reward += reward
             step += 1
 
-        print(f"Episode {ep}: Reward={ep_reward}, Steps={step}")
+        print(f"Episode {s}: Reward={ep_reward}, Steps={step}")
 
         # Display animation using matplotlib
         fig = plt.figure()
@@ -100,21 +121,33 @@ def visualize_agent(cfg: DictConfig, num_episodes=3, max_steps=360):
         ani = animation.ArtistAnimation(
             fig, ims, interval=300, blit=True, repeat_delay=1000
         )
-        ani_path = os.path.join(
-            file_path,
-            f"../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52/trained_agent_{ep}.gif",
-        )
+
+        ani_path = os.path.join(file_path, f"trained_agent_{s + start_seed}.gif")
         ani.save(ani_path, writer="pillow")
 
 
 # change config name
 @hydra.main(
-    config_path="../../results/runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_30-07-25_21-09-52",
+    config_path="../../results/final_runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_02-08-25_22-16-03",
     config_name="config.yaml",
     version_base="1.1",
 )
 def main(cfg: DictConfig):
-    visualize_agent(cfg, num_episodes=10)
+    """
+    Main function for visualizing a trained agent.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Configuration loaded from the trained model directory.
+    """
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(
+        current_path,
+        "../../results/final_runs/MiniGrid-DoorKey-6x6-v0_dqn_seed_0_time_02-08-25_22-16-03",
+    )
+
+    visualize_agent(cfg, file_path, num_seeds=1, start_seed=0)
 
 
 if __name__ == "__main__":

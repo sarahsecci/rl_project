@@ -1,5 +1,8 @@
 """
-Plot final runs of DQN, RND-naive, and RND-on-sample agents
+Plot generation for comparing DQN, RND-naive, and RND-on-sample agents using rliable library.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
 """
 
 import os
@@ -24,13 +27,24 @@ def load_and_align_data(
     """
     Load CSV files of different lengths and align them to a common step grid.
 
-    Args:
-        file_paths: List of paths to CSV files (one per seed)
-        x_col: Name of the x-axis column (e.g., "steps")
-        y_col: Name of the y-axis column (e.g., "rewards")
-        step_interval: Interval for common step grid
+    Parameters
+    ----------
+    file_paths : list[str]
+        List of paths to CSV files (one per seed).
+    x_col : str
+        Name of the x-axis column (e.g., "steps").
+    y_col : str
+        Name of the y-axis column (e.g., "rewards").
+    step_interval : int
+        Interval for common step grid.
+    min_step : int
+        Minimum step value for interpolation.
+    max_step : int
+        Maximum step value for interpolation.
 
-    Returns:
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
         common_steps: Array of common step values
         aligned_data: 2D array of shape (n_seeds, n_steps)
     """
@@ -84,14 +98,28 @@ def plot_sample_efficiency(
     """
     Create sample efficiency plot with stratified bootstrap intervals using rliable.
 
-    Args:
-        env_name: Environment name (e.g., "MiniGrid-DoorKey-6x6-v0")
-        agents: List of agent names (e.g., ["dqn"] or ["dqn", "rnd_naive", "rnd_on_sample"])
-        x_col: Name of x-axis column
-        y_col: Name of y-axis column
-        step_interval: Step interval for alignment
-        save_path: Where to save the plot (optional)
-        title: Plot title (optional)
+    Parameters
+    ----------
+    env_name : str
+        Environment name (e.g., "MiniGrid-DoorKey-6x6-v0").
+    agents : list[str]
+        List of agent names (e.g., ["dqn"] or ["dqn", "rnd_naive", "rnd_on_sample"]).
+    eval_file : str
+        Name of CSV file containing evaluation data.
+    x_col : str
+        Name of x-axis column.
+    y_col : str
+        Name of y-axis column.
+    step_interval : int
+        Step interval for data alignment.
+    min_step : int
+        Minimum step for interpolation.
+    max_step : int
+        Maximum step for interpolation.
+    save_path : str, optional
+        Where to save the plot. If None, shows plot.
+    title : str, optional
+        Plot title. If None, auto-generates title.
     """
     all_train_scores = {}
     common_steps = None
@@ -158,7 +186,7 @@ def plot_sample_efficiency(
         ticklabelsize="x-large",
         marker="",
         linewidth=2,
-        figsize=(5, 4),  # (8,4) (4,4)
+        figsize=(8, 4),
     )
 
     if title:
@@ -183,6 +211,18 @@ def plot_sample_efficiency(
 def get_result_dirs(env_name: str, agent: str) -> list[str]:
     """
     Get all result directories for a specific environment and agent.
+
+    Parameters
+    ----------
+    env_name : str
+        Name of the environment (e.g., "MiniGrid-DoorKey-6x6-v0").
+    agent : str
+        Agent type ("dqn", "rnd_naive", or "rnd_on_sample").
+
+    Returns
+    -------
+    list[str]
+        List of directory paths containing results for the specified agent.
     """
     root = os.path.dirname(os.path.abspath(__file__))
     final_runs_dir = os.path.join(root, "../../results/final_runs")
@@ -203,6 +243,9 @@ def get_result_dirs(env_name: str, agent: str) -> list[str]:
 
 
 if __name__ == "__main__":
+    """
+    Generate all comparison plots for DQN, RND-naive, and RND-on-sample agents.
+    """
     env_name = "MiniGrid-DoorKey-6x6-v0"
 
     # Set path for resulting plots
@@ -212,34 +255,34 @@ if __name__ == "__main__":
 
     # Configuration for all plots
     plot_configs = [
-        # {
-        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-        #     "eval_file": "episode_rewards",
-        #     "y_col": "rewards",
-        #     "filename": "rewards_over_steps",
-        #     "title": "Episode rewards over steps",
-        # },
-        # {
-        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-        #     "eval_file": "minibatch_values",
-        #     "y_col": "extrinsic",
-        #     "filename": "extrinsic",
-        #     "title": "Mean extrinsic reward in sampled batches",
-        # },
-        # {
-        #     "agents": ["rnd_naive", "rnd_on_sample"],  # Only RND agents
-        #     "eval_file": "minibatch_values",
-        #     "y_col": "intrinsic",
-        #     "filename": "intrinsic",
-        #     "title": "Mean intrinsic reward in sampled batches",
-        # },
-        # {
-        #     "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
-        #     "eval_file": "minibatch_values",
-        #     "y_col": "loss",
-        #     "filename": "td_error",
-        #     "title": "TD Error",
-        # },
+        {
+            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+            "eval_file": "episode_rewards",
+            "y_col": "rewards",
+            "filename": "rewards_over_steps",
+            "title": "Episode rewards over steps",
+        },
+        {
+            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+            "eval_file": "minibatch_values",
+            "y_col": "extrinsic",
+            "filename": "extrinsic",
+            "title": "Mean extrinsic reward in sampled batches",
+        },
+        {
+            "agents": ["rnd_naive", "rnd_on_sample"],  # Only RND agents
+            "eval_file": "minibatch_values",
+            "y_col": "intrinsic",
+            "filename": "intrinsic",
+            "title": "Mean intrinsic reward in sampled batches",
+        },
+        {
+            "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
+            "eval_file": "minibatch_values",
+            "y_col": "loss",
+            "filename": "td_error",
+            "title": "TD Error",
+        },
         {
             "agents": ["rnd_naive", "rnd_on_sample", "dqn"],
             "eval_file": "minibatch_values",

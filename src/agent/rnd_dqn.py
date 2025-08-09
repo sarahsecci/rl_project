@@ -1,5 +1,8 @@
 """
-Deep Q-Learning with RND (naive and on-sample) implementation.
+Deep Q-Learning with RND (Random Network Distillation) implementation for curiosity-driven exploration.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
 """
 
 from typing import Any, Dict, List, Tuple
@@ -19,12 +22,10 @@ from agent.replay_buffer import ReplayBuffer
 
 class RNDDQNAgent(DQNAgent):
     """
-    Deep Q-Learning agent with ε-greedy policy and target network.
+    Deep Q-Learning agent with Random Network Distillation for intrinsic motivation.
 
-    Derives from AbstractAgent by implementing:
-      - predict_action
-      - save / load
-      - update_agent
+    Extends DQNAgent with RND networks for curiosity-driven exploration.
+    Supports both naive and on-sample RND variants.
     """
 
     def __init__(
@@ -48,44 +49,44 @@ class RNDDQNAgent(DQNAgent):
         seed: int = 0,
     ) -> None:
         """
-        Initialize replay buffer, Q-networks, optimizer, and hyperparameters.
+        Initialize RND-DQN agent with curiosity-driven exploration.
 
         Parameters
         ----------
         env : gym.Env
             The Gym environment.
         buffer_capacity : int
-            Max experiences stored.
+            Max experiences stored in replay buffer.
         batch_size : int
             Mini-batch size for updates.
         lr : float
-            Learning rate.
+            Learning rate for DQN networks.
         gamma : float
             Discount factor.
         epsilon_start : float
             Initial ε for exploration.
         epsilon_final : float
-            Final ε.
+            Final ε value.
         epsilon_decay : int
-            Exponential decay parameter.
+            Exponential decay parameter for ε.
         dqn_target_update_freq : int
             How many updates between target-network syncs.
         dqn_hidden_size : int
-            Hidden layer size for DQN.
+            Hidden layer size for DQN networks.
         rnd_type : str
-            Type of RND ("naive" or "on_sample").
+            Type of RND implementation ("naive" or "on_sample").
         rnd_hidden_size : int
             Hidden layer size for RND networks.
         rnd_output_size : int
             Output size for RND networks.
         rnd_lr : float
-            Learning rate for RND networks.
+            Learning rate for RND predictor network.
         rnd_update_freq : int
             How often to update RND networks.
         rnd_reward_weight : float
-            Weight for RND bonus in reward.
+            Weight for RND bonus in total reward.
         seed : int
-            RNG seed.
+            Random seed for reproducibility.
         """
         super().__init__(
             env,
@@ -133,17 +134,17 @@ class RNDDQNAgent(DQNAgent):
         self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict]]
     ) -> float:
         """
-        Perform one gradient update on the RND network on a batch of transitions.
+        Perform one gradient update on the RND predictor network.
 
         Parameters
         ----------
         training_batch : list of transitions
             Each is (state, action, reward, next_state, done, info).
-            states are already processed by _process_obs.
+            States are already processed by _process_obs.
 
         Returns
         -------
-        rnd_error : float
+        float
             MSE loss value for the RND update.
         """
         # Get first element from each tupel for a list of tupels
@@ -171,17 +172,18 @@ class RNDDQNAgent(DQNAgent):
         return float(rnd_error.item())  # Returning scalar value of the loss as float
 
     def _get_rnd_bonus(self, state: np.ndarray) -> float:
-        """Compute the RND bonus for a given state.
+        """
+        Compute the RND intrinsic reward bonus for a given state.
 
         Parameters
         ----------
         state : np.ndarray
-            The current state of the environment. Already processed by _process_obs.
+            The current state observation, already processed by _process_obs.
 
         Returns
         -------
         float
-            The RND bonus for the state.
+            The RND bonus reward value.
         """
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
 
@@ -194,26 +196,20 @@ class RNDDQNAgent(DQNAgent):
 
     def _update_agent(
         self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict, float]]
-    ) -> float:
+    ) -> List[float]:
         """
-        Perform one gradient update on a batch of transitions.
+        Perform one gradient update on Q-network using combined extrinsic and intrinsic rewards.
 
         Parameters
         ----------
         training_batch : list of transitions
             Each is (state, action, extrinsic_reward, next_state, done, info, intrinsic_reward).
-            state and next_state are already processed by _process_obs.
+            State and next_state are already processed by _process_obs.
 
         Returns
         -------
-        mean_extr : float
-            Mean extrinsic reward for minibatch
-        mean_intr : float
-            Mean intrinsic reward for minibatch
-        loss : float
-            MSE loss value = TD error
-        td_std : float
-            Standard deviation of TD error for minibatch
+        List[float]
+            [mean_extrinsic, mean_intrinsic, loss, td_std] - training metrics.
         """
         # Unpack
         states, actions, extr_rewards, next_states, dones, _, intr_rewards = zip(
@@ -282,14 +278,12 @@ class RNDDQNAgent(DQNAgent):
         decimals: int = 5,
     ) -> None:
         """
-        Save training data to CSV files.
-        Handles visitation map (np.ndarray), episode rewards (list of tuples),
-        and minibatch values (list of tuples).
+        Save training data to CSV files with support for RND-specific data.
 
         Parameters
         ----------
         saving_path : str
-            Path to save the CSV file.
+            Directory path to save the CSV file.
         file_name : str
             Name of the CSV file.
         training_data : np.ndarray or list of tuples
@@ -298,9 +292,11 @@ class RNDDQNAgent(DQNAgent):
             - For episode rewards: list of tuples (frame, reward, epsilon)
             - For minibatch values: list of tuples (frame, extrinsic, intrinsic, loss, td_std)
         mean_window : int, optional
-            For minibatch data: rolling window size for averaging
-        save_every_n : int
-            For minibatch data: save only every nth data point to reduce file size
+            Rolling window size for averaging minibatch data.
+        save_every_n : int, optional
+            Save only every nth data point to reduce file size.
+        decimals : int, optional
+            Number of decimal places for rounding.
         """
         os.makedirs(saving_path, exist_ok=True)
         file_path = os.path.join(saving_path, file_name)
@@ -364,24 +360,26 @@ class RNDDQNAgent(DQNAgent):
         decimals: int = 5,
     ) -> None:
         """
-        Run a training loop for a fixed number of frames.
+        Run training loop with RND-based intrinsic motivation.
 
         Parameters
         ----------
         num_frames : int
-            Total environment steps.
+            Total environment steps to train for.
         saving_path : str
-            Path to save training data (CSV).
+            Path to save training data and checkpoints.
         visitation_map : np.ndarray
-            Visitation map to track agent position.
+            2D array to track agent position visits.
         vmap_save_every_n : int, optional
-            Save visitation map every nth step to reduce file size.
+            Save visitation map every nth step.
         minibatch_window : int, optional
             Rolling window size for averaging minibatch values.
         minibatch_save_every_n : int, optional
-            Save minibatch values every nth step to reduce file size.
-        eval_interval : int
-            Print average episode reward every eval_interval steps in terminal.
+            Save minibatch values every nth step.
+        eval_interval : int, optional
+            Print average episode reward every nth episode.
+        decimals : int, optional
+            Number of decimal places for data saving.
         """
         print("Starting training...")
         state, _ = self.env.reset(seed=self.seed)

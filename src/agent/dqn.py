@@ -1,5 +1,8 @@
 """
-Deep Q-Learning implementation.
+Deep Q-Learning implementation with epsilon-greedy exploration and target network.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
 """
 
 from typing import Any, Dict, List, Tuple

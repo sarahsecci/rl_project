@@ -1,3 +1,10 @@
+"""
+Main training script for DQN and RND-DQN agents with environment setup and model saving.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
+"""
+
 import os
 import time
 from datetime import datetime as dt
@@ -19,7 +26,7 @@ class WrongWrapper(Exception):
 
 def set_gpu():
     """
-    Set gpu as compute device (if available)
+    Set GPU as compute device if available, otherwise use CPU.
     """
     device = torch.device(
         f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
@@ -29,14 +36,24 @@ def set_gpu():
 
 def build_env(env_name: str, wrapper: str) -> gym.Env:
     """
-    Build a gym environment with FlatObsWrapper or RGBImgObsWrapper
+    Build a gym environment with specified wrapper.
 
-    Args:
-        env_name (str): Name of the environment to create.
-        wrapper (str): The wrapper to apply to the environment.
+    Parameters
+    ----------
+    env_name : str
+        Name of the environment to create.
+    wrapper : str
+        The wrapper to apply ("FlatObsWrapper" or "RGBImgObsWrapper").
 
-    Returns:
-        gym.Env: The created environment with the specified wrapper.
+    Returns
+    -------
+    gym.Env
+        The created environment with the specified wrapper.
+
+    Raises
+    ------
+    WrongWrapper
+        If wrapper is not "FlatObsWrapper" or "RGBImgObsWrapper".
     """
     env = gym.make(env_name)
 
@@ -52,15 +69,26 @@ def build_env(env_name: str, wrapper: str) -> gym.Env:
 
 def setup_agent(cfg: DictConfig, env: gym.Env, seed: int = None) -> DQNAgent:
     """
-    Set up the DQN agent based on the configuration.
+    Set up the DQN or RND-DQN agent based on the configuration.
 
-    Args:
-        cfg (DictConfig): Configuration for the agent.
-        env (gym.Env): The environment to use.
-        obs_shape (tuple): Shape of the observations.
+    Parameters
+    ----------
+    cfg : DictConfig
+        Configuration for the agent containing hyperparameters.
+    env : gym.Env
+        The environment to use.
+    seed : int, optional
+        Random seed override. If None, uses cfg.seed.
 
-    Returns:
-        DQNAgent: The configured DQN agent.
+    Returns
+    -------
+    DQNAgent
+        The configured DQN or RND-DQN agent.
+
+    Raises
+    ------
+    ValueError
+        If agent type is not "dqn" or "rnd".
     """
     agent = None
     agent_kwargs = None
@@ -108,7 +136,20 @@ def setup_agent(cfg: DictConfig, env: gym.Env, seed: int = None) -> DQNAgent:
     return agent
 
 
-def set_visitation_map(env_name) -> np.ndarray:
+def set_visitation_map(env_name: str) -> np.ndarray:
+    """
+    Create a visitation map based on environment dimensions.
+
+    Parameters
+    ----------
+    env_name : str
+        Name of the environment (e.g., "MiniGrid-DoorKey-6x6-v0").
+
+    Returns
+    -------
+    np.ndarray
+        Zero-initialized visitation map of shape (height, width).
+    """
     splits = env_name.split("-")
     env_dim_str = splits[2]
     width, height = map(int, env_dim_str.split("x"))
@@ -121,10 +162,17 @@ def set_results_dir(cfg: DictConfig, seed: int = None) -> str:
     """
     Set the results directory based on the configuration.
 
+    Parameters
+    ----------
+    cfg : DictConfig
+        Configuration containing agent and environment details.
+    seed : int, optional
+        Random seed. If None, uses cfg.seed and "runs" directory.
+
     Returns
     -------
     str
-        Path to the results directory
+        Path to the results directory.
     """
     file_path = os.path.dirname(os.path.abspath(__file__))
     os.makedirs(os.path.join(file_path, "../results"), exist_ok=True)
@@ -156,6 +204,20 @@ def set_results_dir(cfg: DictConfig, seed: int = None) -> str:
 
 
 def save_results(run_path: str, cfg: DictConfig, agent: DQNAgent, runtime: time):
+    """
+    Save training results to the specified directory.
+
+    Parameters
+    ----------
+    run_path : str
+        Directory path to save results.
+    cfg : DictConfig
+        Configuration used for training.
+    agent : DQNAgent
+        Trained agent to save.
+    runtime : time
+        Training time in seconds.
+    """
     # Save model
     model_file = os.path.join(run_path, "model.pth")
     torch.save(
@@ -179,10 +241,17 @@ def train_agent(cfg: DictConfig, seed: int = None) -> str:
     """
     Train an agent and return the results directory path.
 
+    Parameters
+    ----------
+    cfg : DictConfig
+        Training configuration containing all hyperparameters.
+    seed : int, optional
+        Random seed override. If None, uses cfg.seed.
+
     Returns
     -------
     str
-        Path to the results directory
+        Path to the results directory.
     """
     run_path = set_results_dir(cfg, seed)
 
@@ -222,12 +291,13 @@ def parse_performance_metric(results_dir: str) -> float:
     Parameters
     ----------
     results_dir : str
-        Directory containing training results
+        Directory containing training results with episode_rewards.csv.
 
     Returns
     -------
     float
-        Performance metric for optimization (higher is better)
+        Performance metric for optimization (lower is better - normalized episode length).
+        Returns -inf if parsing fails.
     """
     # Constants
     MAX_EPISODE_STEPS = 360  # Maximum steps before truncation in MiniGrid
@@ -292,6 +362,14 @@ def parse_performance_metric(results_dir: str) -> float:
 
 @hydra.main(config_path="../config/", config_name="dqn_opt", version_base="1.2")
 def main(cfg: DictConfig):
+    """
+    Main function for training agents with Hydra configuration.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration loaded from config files.
+    """
     # Set gpu as torch device if using RGBImgObsWrapper (and therefore CNN)
     if cfg.env.wrapper == "RGBImgObsWrapper":
         set_gpu()
