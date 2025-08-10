@@ -1,3 +1,10 @@
+"""
+Plot generation for mapping state visitations of DQN, RND-naive, and RND-on-sample agents.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
+"""
+
 import glob
 import math
 import os
@@ -13,10 +20,13 @@ from minigrid.wrappers import RGBImgObsWrapper
 
 def vmap_quick(seed_start, seed_stop, agent, interval, cmap, show):
     """
+    Create state visitation maps and initial environment setup for set range of seeds for one agent.
+
+    Parameters
+    ----------
     seed_start: seed from that plotting should start
     seed_stop: until which seed should be plottet
     agent: agent that was used for training -> Options: "dqn", "rnd_naive", "rnd_on_sample"
-    seed: which training seed should be shown
     interval: interval of frames
     cmap: colourmap used for all plots
     show: if true shows plots instead of saving
@@ -103,9 +113,14 @@ def vmap_quick(seed_start, seed_stop, agent, interval, cmap, show):
 
 def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"):
     """
+    Create plot with multiple state visitation maps for one agent after different amount of frames.
+
+    Parameters
+    ----------
     agent: agent that was used for training -> Options: "dqn", "rnd_naive", "rnd_on_sample"
     seed: which training seed should be shown
-    interval: interval of frames
+    frames: list of frames after which the state visitation map is shown
+    max_plots: maximum number of plots in a row
     cols: number of columns in the grid
     cmap: colormap for all heatmaps
     """
@@ -113,8 +128,6 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
     file_path = os.path.dirname(os.path.abspath(__file__))
     dfs = []
     titles = []
-    # current_interval = interval
-    # max_plots = int(60000/interval)
 
     for i in range(0, max_plots):
         run_file = f"results/final_runs/MiniGrid-DoorKey-6x6-v0_{agent}_seed_{seed}_time_*/visitation_map_{frames[i]}.csv"
@@ -147,7 +160,7 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
     for idx, (df, ax) in enumerate(zip(dfs, axes.flat)):
         mask = df == 0
         bar = False
-        # if idx == 3: bar = True
+
         sns.heatmap(
             df,
             ax=ax,
@@ -169,10 +182,8 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
     # Use the last heatmap to create a mappable object
 
     # Create dummy heatmap to extract color scale
-    cbar_ax = fig.add_axes([0.9, 0.29, 0.02, 0.4])  # [left, bottom, width, height]
-    # sns.heatmap(dfs[0], cmap=cmap, cbar=True,
-    #             square=True, vmin=vmin, vmax=15000)
-    # plt.gcf().text(-0.02,0.45, "Y-axis", ha="center", va="center", rotation=90, fontsize=12)
+    cbar_ax = fig.add_axes([0.92, 0.35, 0.02, 0.3])  # [left, bottom, width, height]
+
     # Create a dummy mappable for the colorbar
     norm = plt.Normalize(vmin=vmin, vmax=10000)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
@@ -180,7 +191,7 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
 
     # Add colorbar to the figure
     cbar = fig.colorbar(sm, cax=cbar_ax)
-    cbar.set_label("Visitation Count", fontsize=16)
+    cbar.set_label("Visitation Count", fontsize=16, fontname="Times New Roman")
 
     # Hide unused axes
     for ax in axes.flat[len(dfs) :]:
@@ -215,6 +226,9 @@ def plot_multiple_heatmaps(agent, seed, frames, max_plots, cols=3, cmap="rocket"
 
 
 if __name__ == "__main__":
+    """ 
+    Genrate state visitation maps.
+    """
     # plot several state visitation maps as single files
     # vmap_quick(seed_start=0, seed_stop=21, agent="rnd_on_sample", interval=5000, cmap="inferno_r", show=False)
 
