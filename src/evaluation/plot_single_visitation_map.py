@@ -1,3 +1,10 @@
+"""
+Plot generation for mapping single state visitation maps.
+Authors: Clara Schindler and Sarah Secci
+Date: 09-08-25
+Parts of this code were made with the help of Copilot
+"""
+
 import os
 
 import matplotlib
@@ -19,12 +26,9 @@ save_path = os.path.join(
 )
 df = pd.read_csv(run_path)
 
+# plot state visitation map
 plt.figure(figsize=(6, 6))
 sns.heatmap(df, cmap="viridis")
 plt.title("Visitation Heatmap")
-# plt.gca().invert_xaxis()
-# plt.gca().invert_yaxis()  # Align with MiniGrid
-# plt.show()
-plt.savefig(save_path)
 
-# results/sweeps/MiniGrid-DoorKey-8x8-v0_dqn_seed_1/18/visitation_map_120000.csv
+plt.savefig(save_path)
